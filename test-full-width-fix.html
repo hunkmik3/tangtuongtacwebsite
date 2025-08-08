@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Full Width Fix</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <select class="service-select">
+                <option>Chọn dịch vụ</option>
+                <option>Tăng Like Facebook</option>
+                <option>Tăng Follow Facebook</option>
+            </select>
+        </div>
+        <div class="top-bar-right">
+            <div class="dark-mode-toggle">
+                <input type="checkbox" id="darkModeToggle">
+                <label for="darkModeToggle">Dark Mode</label>
+            </div>
+            <div class="user-info">
+                <span>Xin Chào, hunkmike111</span>
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <button class="logout-btn">Đăng Xuất</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="logo-section">
+                <div class="logo">
+                    <div class="social-icons">
+                        <i class="fab fa-snapchat-ghost"></i>
+                        <i class="fab fa-facebook"></i>
+                        <i class="fab fa-tiktok"></i>
+                        <i class="fab fa-pinterest"></i>
+                        <i class="fab fa-youtube"></i>
+                        <i class="fab fa-instagram"></i>
+                    </div>
+                </div>
+                <h3>Quản Lý Chung</h3>
+            </div>
+
+            <nav class="main-nav">
+                <a href="#" class="nav-item active">
+                    <i class="fas fa-home"></i>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-user"></i>
+                    <span>Thông tin tài khoản</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-wallet"></i>
+                    <span>Nạp Tiền</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-headset"></i>
+                    <span>Liên Hệ Hỗ Trợ</span>
+                </a>
+            </nav>
+
+            <div class="service-list">
+                <h4>DANH SÁCH DỊCH VỤ</h4>
+                <div class="service-category">
+                    <div class="service-category-header">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Dịch vụ khác</span>
+                        <span class="new-badge">Mới</span>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="service-submenu">
+                        <div class="service-subitem">
+                            <span>Voucher STK</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>DV Mở Khóa MXH</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="service-category">
+                    <div class="service-category-header">
+                        <i class="fas fa-facebook"></i>
+                        <span>Facebook</span>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="service-submenu">
+                        <div class="service-subitem">
+                            <span>Tăng Like Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Follow Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Comment Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Share Facebook</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <h1>Test Full Width Fix</h1>
+            <p>Nếu bạn thấy nội dung tràn ra toàn bộ màn hình thay vì bị dồn về bên phải, thì layout đã được sửa thành công!</p>
+            
+            <!-- User Profile Section -->
+            <div class="user-profile">
+                <div class="profile-info">
+                    <div class="profile-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="profile-details">
+                        <h3>hunkmike111 <i class="fas fa-check-circle verified"></i></h3>
+                        <p>hungmai16.work@gmail.com</p>
+                        <span class="status">Thành Viên</span>
+                    </div>
+                </div>
+                
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <i class="fas fa-wallet"></i>
+                        <div>
+                            <h4>Số Dư</h4>
+                            <p>167₫</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-dollar-sign"></i>
+                        <div>
+                            <h4>Tổng nạp tháng</h4>
+                            <p>0₫</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-star"></i>
+                        <div>
+                            <h4>Cấp bậc</h4>
+                            <p>Thành Viên</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Service Form -->
+            <div class="content-wrapper">
+                <div class="form-section">
+                    <h3>Test Form - Nội dung này phải tràn ra toàn bộ</h3>
+                    <div class="form-group">
+                        <label for="test-input">Test Input:</label>
+                        <input type="text" id="test-input" placeholder="Test input field">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Test Server Options:</label>
+                        <div class="server-options">
+                            <div class="server-option selected">
+                                <input type="radio" name="test-server" value="server1" id="test-server1" checked>
+                                <label for="test-server1">
+                                    <div class="option-header">
+                                        <span class="option-title">Server 1: Test Server</span>
+                                        <span class="option-price">100₫</span>
+                                        <span class="status-badge active">Hoạt động</span>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <div class="server-option">
+                                <input type="radio" name="test-server" value="server2" id="test-server2">
+                                <label for="test-server2">
+                                    <div class="option-header">
+                                        <span class="option-title">Server 2: Test Server</span>
+                                        <span class="option-price">200₫</span>
+                                        <span class="status-badge slow">Chậm</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Test Reaction Options:</label>
+                        <div class="reaction-options">
+                            <div class="reaction-item">
+                                <i class="fas fa-thumbs-up"></i>
+                                <input type="checkbox" id="test-like" checked>
+                                <label for="test-like">Like</label>
+                            </div>
+                            <div class="reaction-item">
+                                <i class="fas fa-heart"></i>
+                                <input type="checkbox" id="test-love">
+                                <label for="test-love">Love</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn-create-request">Test Button</button>
+                        <button class="btn-manage">Test Manage</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="right-sidebar">
+            <div class="sidebar-section">
+                <h4>Hoạt động mới</h4>
+                <div class="filter-checkbox">
+                    <input type="checkbox" id="filter-notifications">
+                    <label for="filter-notifications">Lọc thông báo quan trọng</label>
+                </div>
+                <div class="activity-item">
+                    <i class="fas fa-bell"></i>
+                    <div class="activity-date">08/08</div>
+                    <p>Chào mừng bạn đến với hệ thống TĂNG TƯƠNG TÁC VIP. Chúng tôi cam kết mang đến cho bạn những tương tác chất lượng cao.</p>
+                </div>
+                <button class="view-all-btn">Xem tất cả thông báo</button>
+            </div>
+            
+            <div class="sidebar-section">
+                <h4>Bạn cần hỗ trợ?</h4>
+                <div class="support-grid">
+                    <div class="support-item">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>NẠP TIỀN</span>
+                    </div>
+                    <div class="support-item">
+                        <i class="fab fa-zalo"></i>
+                        <span>Nhóm Zalo - Hỗ Trợ</span>
+                    </div>
+                    <div class="support-item">
+                        <i class="fab fa-facebook-messenger"></i>
+                        <span>Fanpage - Nhân viên hỗ trợ</span>
+                    </div>
+                    <div class="support-item">
+                        <i class="fab fa-zalo"></i>
+                        <span>Zalo - Admin</span>
+                    </div>
+                    <div class="support-item">
+                        <i class="fab fa-youtube"></i>
+                        <span>Youtube HDSD</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h4>Câu hỏi thường gặp (nhấn để xem)</h4>
+                <div class="faq-list">
+                    <div class="faq-item">
+                        <i class="fas fa-question-circle"></i>
+                        <span>TÔI NẠP TIỀN NHƯNG CHƯA NHẬN ĐƯỢC?</span>
+                    </div>
+                    <div class="faq-item">
+                        <i class="fas fa-question-circle"></i>
+                        <span>TÔI CẦN BẢO HÀNH DỊCH VỤ?</span>
+                    </div>
+                    <div class="faq-item">
+                        <i class="fas fa-question-circle"></i>
+                        <span>DỊCH VỤ TÔI ĐÃ MUA KHÔNG CHẠY?</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h4>Video hướng dẫn sử dụng</h4>
+                <div class="video-thumbnail">
+                    <div class="video-overlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        // Load saved dark mode preference
+        const savedDarkMode = localStorage.getItem('darkMode');
+        if (savedDarkMode === 'true') {
+            body.classList.add('dark-mode');
+            darkModeToggle.checked = true;
+        }
+
+        // Toggle dark mode
+        if (darkModeToggle) {
+            darkModeToggle.addEventListener('change', function() {
+                if (this.checked) {
+                    body.classList.add('dark-mode');
+                    localStorage.setItem('darkMode', 'true');
+                } else {
+                    body.classList.remove('dark-mode');
+                    localStorage.setItem('darkMode', 'false');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

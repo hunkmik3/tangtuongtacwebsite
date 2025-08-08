@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - Tăng Tương Tác VIP</title>
+    <link rel="stylesheet" href="login-styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-background">
+            <div class="floating-shapes">
+                <div class="shape shape-1"></div>
+                <div class="shape shape-2"></div>
+                <div class="shape shape-3"></div>
+                <div class="shape shape-4"></div>
+            </div>
+        </div>
+        
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">
+                    <div class="social-icons">
+                        <i class="fab fa-snapchat-ghost"></i>
+                        <i class="fab fa-facebook"></i>
+                        <i class="fab fa-tiktok"></i>
+                        <i class="fab fa-pinterest"></i>
+                        <i class="fab fa-youtube"></i>
+                        <i class="fab fa-instagram"></i>
+                    </div>
+                </div>
+                <h1>Tăng Tương Tác VIP</h1>
+                <p>Hệ thống tăng tương tác chất lượng hàng đầu Việt Nam</p>
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">
+                        <i class="fas fa-user"></i>
+                        Tên đăng nhập
+                    </label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        <i class="fas fa-lock"></i>
+                        Mật khẩu
+                    </label>
+                    <div class="password-input">
+                        <input type="password" id="password" name="password" required>
+                        <button type="button" class="toggle-password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="remember" name="remember">
+                        <span class="checkmark"></span>
+                        Ghi nhớ đăng nhập
+                    </label>
+                    <a href="#" class="forgot-password">Quên mật khẩu?</a>
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <span>Đăng nhập</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p>Chưa có tài khoản? <a href="#" class="register-link">Đăng ký ngay</a></p>
+                
+                <div class="social-login">
+                    <p>Hoặc đăng nhập với</p>
+                    <div class="social-buttons">
+                        <button class="social-btn facebook">
+                            <i class="fab fa-facebook-f"></i>
+                            Facebook
+                        </button>
+                        <button class="social-btn google">
+                            <i class="fab fa-google"></i>
+                            Google
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="login-info">
+            <div class="info-card">
+                <i class="fas fa-shield-alt"></i>
+                <h3>Bảo mật tuyệt đối</h3>
+                <p>Thông tin của bạn được mã hóa và bảo vệ an toàn</p>
+            </div>
+            <div class="info-card">
+                <i class="fas fa-rocket"></i>
+                <h3>Tốc độ nhanh chóng</h3>
+                <p>Hệ thống được tối ưu để mang lại trải nghiệm tốt nhất</p>
+            </div>
+            <div class="info-card">
+                <i class="fas fa-headset"></i>
+                <h3>Hỗ trợ 24/7</h3>
+                <p>Đội ngũ hỗ trợ luôn sẵn sàng phục vụ bạn</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="login-script.js"></script>
+</body>
+</html>

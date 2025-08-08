@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dropdown</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .service-category {
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .service-category-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            user-select: none;
+        }
+
+        .service-category-header:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .category-toggle {
+            color: #667eea;
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+
+        .service-category.expanded .category-toggle {
+            transform: rotate(180deg);
+        }
+
+        .service-submenu {
+            margin-left: 20px;
+            margin-top: 8px;
+            display: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .service-category.expanded .service-submenu {
+            display: block;
+        }
+
+        .service-subitem {
+            padding: 8px 15px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .service-subitem:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Dropdown Functionality</h1>
+    
+    <div class="service-category">
+        <div class="service-category-header">
+            <i class="fas fa-money-bill"></i>
+            <span>Dịch vụ khác</span>
+            <span class="new-badge">Mới</span>
+            <i class="fas fa-chevron-down category-toggle"></i>
+        </div>
+        <div class="service-submenu">
+            <div class="service-subitem">
+                <span>Voucher STK</span>
+            </div>
+            <div class="service-subitem">
+                <span>DV Mở Khóa MXH</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="service-category">
+        <div class="service-category-header">
+            <i class="fas fa-facebook"></i>
+            <span>Facebook</span>
+            <i class="fas fa-chevron-down category-toggle"></i>
+        </div>
+        <div class="service-submenu">
+            <div class="service-subitem">
+                <span>Tăng Like Facebook</span>
+            </div>
+            <div class="service-subitem">
+                <span>Tăng Follow Facebook</span>
+            </div>
+            <div class="service-subitem">
+                <span>Tăng Comment Facebook</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Test page loaded');
+            
+            const categoryHeaders = document.querySelectorAll('.service-category-header');
+            console.log('Found category headers:', categoryHeaders.length);
+            
+            categoryHeaders.forEach(header => {
+                header.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Category header clicked:', this.querySelector('span').textContent);
+                    
+                    const category = this.closest('.service-category');
+                    const submenu = category.querySelector('.service-submenu');
+                    const toggle = this.querySelector('.category-toggle');
+                    
+                    category.classList.toggle('expanded');
+                    
+                    if (category.classList.contains('expanded')) {
+                        submenu.style.display = 'block';
+                        toggle.style.transform = 'rotate(180deg)';
+                        console.log('Category expanded');
+                    } else {
+                        submenu.style.display = 'none';
+                        toggle.style.transform = 'rotate(0deg)';
+                        console.log('Category collapsed');
+                    }
+                });
+            });
+
+            const subitems = document.querySelectorAll('.service-subitem');
+            subitems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const serviceName = this.querySelector('span').textContent;
+                    console.log('Service item clicked:', serviceName);
+                    alert('Clicked: ' + serviceName);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

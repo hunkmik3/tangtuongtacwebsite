@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Dropdown Test</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="service-list">
+                <h4>DANH SÁCH DỊCH VỤ</h4>
+                <div class="service-category">
+                    <div class="service-category-header">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Dịch vụ khác</span>
+                        <span class="new-badge">Mới</span>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="service-submenu">
+                        <div class="service-subitem">
+                            <span>Voucher STK</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>DV Mở Khóa MXH</span>
+                        </div>
+                        <div class="service-subcategory active">
+                            <div class="service-subcategory-header">
+                                <i class="fas fa-unlock"></i>
+                                <span>Dịch vụ Fanpage</span>
+                                <i class="fas fa-chevron-down subcategory-toggle"></i>
+                            </div>
+                            <div class="service-submenu">
+                                <div class="service-subitem">
+                                    <span>Đổi Tên Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>Kháng Gậy Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>DV Nuôi Thuê Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>Tăng Like page SLL</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="service-category">
+                    <div class="service-category-header">
+                        <i class="fas fa-facebook"></i>
+                        <span>Facebook</span>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="service-submenu">
+                        <div class="service-subitem">
+                            <span>Tăng Like Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Follow Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Comment Facebook</span>
+                        </div>
+                        <div class="service-subitem">
+                            <span>Tăng Share Facebook</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <h1>Test Dropdown</h1>
+            <p>Click vào "Dịch vụ khác" hoặc "Facebook" để test dropdown</p>
+            <p>Mở Developer Tools (F12) để xem console logs</p>
+        </div>
+    </div>
+
+    <script src="simple-dropdown.js"></script>
+</body>
+</html>

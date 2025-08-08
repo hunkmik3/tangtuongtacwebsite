@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Tài Khoản - Social Media Services</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="account-styles.css">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <a href="index.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Quay lại Dashboard
+            </a>
+        </div>
+        <div class="top-bar-right">
+            <div class="dark-mode-toggle">
+                <input type="checkbox" id="darkModeToggle">
+                <label for="darkModeToggle">Dark Mode</label>
+            </div>
+            <div class="user-info">
+                <span>Xin Chào, hunkmike111</span>
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <button class="logout-btn">Đăng Xuất</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Sidebar -->
+        <div class="left-sidebar">
+            <div class="profile-section">
+                <div class="profile-avatar">
+                    <img src="https://via.placeholder.com/100x100/667eea/ffffff?text=HK" alt="Avatar">
+                    <div class="online-status"></div>
+                </div>
+                <div class="profile-info">
+                    <h3>hunkmike111</h3>
+                    <p class="user-level">VIP Member</p>
+                    <p class="join-date">Thành viên từ: 15/01/2024</p>
+                </div>
+            </div>
+
+            <nav class="account-nav">
+                <a href="#profile" class="nav-item active" data-tab="profile">
+                    <i class="fas fa-user"></i>
+                    Thông tin cá nhân
+                </a>
+                <a href="#security" class="nav-item" data-tab="security">
+                    <i class="fas fa-shield-alt"></i>
+                    Bảo mật
+                </a>
+                <a href="#notifications" class="nav-item" data-tab="notifications">
+                    <i class="fas fa-bell"></i>
+                    Thông báo
+                </a>
+                <a href="#activity" class="nav-item" data-tab="activity">
+                    <i class="fas fa-history"></i>
+                    Lịch sử hoạt động
+                </a>
+                <a href="#transactions" class="nav-item" data-tab="transactions">
+                    <i class="fas fa-exchange-alt"></i>
+                    Giao dịch
+                </a>
+                <a href="#api" class="nav-item" data-tab="api">
+                    <i class="fas fa-code"></i>
+                    API Keys
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Profile Tab -->
+            <div class="tab-content active" id="profile">
+                <div class="content-header">
+                    <h2>Thông tin cá nhân</h2>
+                    <p>Quản lý thông tin tài khoản của bạn</p>
+                </div>
+
+                <div class="profile-form">
+                    <div class="form-section">
+                        <h3>Thông tin cơ bản</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fullname">Họ và tên</label>
+                                <input type="text" id="fullname" value="Nguyễn Văn A">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" value="hunkmike111@gmail.com">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="phone">Số điện thoại</label>
+                                <input type="tel" id="phone" value="0123456789">
+                            </div>
+                            <div class="form-group">
+                                <label for="birthday">Ngày sinh</label>
+                                <input type="date" id="birthday" value="1990-01-01">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Thông tin liên hệ</h3>
+                        <div class="form-group">
+                            <label for="address">Địa chỉ</label>
+                            <textarea id="address" rows="3">123 Đường ABC, Quận 1, TP.HCM</textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="city">Thành phố</label>
+                                <input type="text" id="city" value="TP.HCM">
+                            </div>
+                            <div class="form-group">
+                                <label for="country">Quốc gia</label>
+                                <input type="text" id="country" value="Việt Nam">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary" id="saveProfile">
+                            <i class="fas fa-save"></i>
+                            Lưu thay đổi
+                        </button>
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-undo"></i>
+                            Khôi phục
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div class="tab-content" id="security">
+                <div class="content-header">
+                    <h2>Bảo mật tài khoản</h2>
+                    <p>Quản lý mật khẩu và bảo mật hai lớp</p>
+                </div>
+
+                <div class="security-sections">
+                    <div class="security-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-lock"></i> Đổi mật khẩu</h3>
+                        </div>
+                        <form class="password-form">
+                            <div class="form-group">
+                                <label for="currentPassword">Mật khẩu hiện tại</label>
+                                <div class="password-input">
+                                    <input type="password" id="currentPassword" required>
+                                    <button type="button" class="toggle-password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">Mật khẩu mới</label>
+                                <div class="password-input">
+                                    <input type="password" id="newPassword" required>
+                                    <button type="button" class="toggle-password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Xác nhận mật khẩu mới</label>
+                                <div class="password-input">
+                                    <input type="password" id="confirmPassword" required>
+                                    <button type="button" class="toggle-password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-key"></i>
+                                Đổi mật khẩu
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="security-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-mobile-alt"></i> Xác thực hai lớp</h3>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="twoFactorToggle">
+                                <label for="twoFactorToggle"></label>
+                            </div>
+                        </div>
+                        <p>Bảo vệ tài khoản bằng mã xác thực qua SMS hoặc ứng dụng</p>
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-cog"></i>
+                            Cài đặt 2FA
+                        </button>
+                    </div>
+
+                    <div class="security-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-desktop"></i> Thiết bị đăng nhập</h3>
+                        </div>
+                        <div class="device-list">
+                            <div class="device-item">
+                                <div class="device-info">
+                                    <i class="fas fa-laptop"></i>
+                                    <div>
+                                        <strong>Windows 10 - Chrome</strong>
+                                        <span>Đăng nhập lần cuối: 2 giờ trước</span>
+                                    </div>
+                                </div>
+                                <button class="btn btn-danger btn-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="device-item">
+                                <div class="device-info">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <div>
+                                        <strong>iPhone 12 - Safari</strong>
+                                        <span>Đăng nhập lần cuối: 1 ngày trước</span>
+                                    </div>
+                                </div>
+                                <button class="btn btn-danger btn-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Tab -->
+            <div class="tab-content" id="notifications">
+                <div class="content-header">
+                    <h2>Cài đặt thông báo</h2>
+                    <p>Tùy chỉnh cách bạn nhận thông báo</p>
+                </div>
+
+                <div class="notification-settings">
+                    <div class="notification-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-envelope"></i> Thông báo Email</h3>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="emailToggle" checked>
+                                <label for="emailToggle"></label>
+                            </div>
+                        </div>
+                        <div class="notification-options">
+                            <label class="checkbox-item">
+                                <input type="checkbox" checked>
+                                <span>Đơn hàng mới</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" checked>
+                                <span>Đơn hàng hoàn thành</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox">
+                                <span>Khuyến mãi và ưu đãi</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" checked>
+                                <span>Thông báo bảo mật</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="notification-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-bell"></i> Thông báo Push</h3>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="pushToggle" checked>
+                                <label for="pushToggle"></label>
+                            </div>
+                        </div>
+                        <div class="notification-options">
+                            <label class="checkbox-item">
+                                <input type="checkbox" checked>
+                                <span>Thông báo đơn hàng</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox">
+                                <span>Thông báo khuyến mãi</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" checked>
+                                <span>Thông báo hệ thống</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="notification-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-sms"></i> Thông báo SMS</h3>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="smsToggle">
+                                <label for="smsToggle"></label>
+                            </div>
+                        </div>
+                        <p>Chỉ nhận thông báo quan trọng qua SMS</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Tab -->
+            <div class="tab-content" id="activity">
+                <div class="content-header">
+                    <h2>Lịch sử hoạt động</h2>
+                    <p>Theo dõi các hoạt động gần đây</p>
+                </div>
+
+                <div class="activity-filters">
+                    <select class="filter-select">
+                        <option>Tất cả hoạt động</option>
+                        <option>Đăng nhập</option>
+                        <option>Đơn hàng</option>
+                        <option>Giao dịch</option>
+                        <option>Cài đặt</option>
+                    </select>
+                    <input type="date" class="date-filter" value="2024-01-15">
+                </div>
+
+                <div class="activity-list">
+                    <div class="activity-item">
+                        <div class="activity-icon login">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Đăng nhập thành công</h4>
+                            <p>Đăng nhập từ Windows 10 - Chrome</p>
+                            <span class="activity-time">2 giờ trước</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon order">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Đặt hàng mới</h4>
+                            <p>Đơn hàng #ORD-2024-001 - 1000 Like Facebook</p>
+                            <span class="activity-time">1 ngày trước</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon payment">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Nạp tiền thành công</h4>
+                            <p>Nạp 500,000 VNĐ qua thẻ ngân hàng</p>
+                            <span class="activity-time">2 ngày trước</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon settings">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Cập nhật thông tin</h4>
+                            <p>Thay đổi thông tin cá nhân</p>
+                            <span class="activity-time">3 ngày trước</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div class="tab-content" id="transactions">
+                <div class="content-header">
+                    <h2>Lịch sử giao dịch</h2>
+                    <p>Xem tất cả giao dịch nạp/rút tiền</p>
+                </div>
+
+                <div class="transaction-filters">
+                    <select class="filter-select">
+                        <option>Tất cả giao dịch</option>
+                        <option>Nạp tiền</option>
+                        <option>Rút tiền</option>
+                        <option>Thanh toán</option>
+                    </select>
+                    <input type="date" class="date-filter" value="2024-01-15">
+                </div>
+
+                <div class="transaction-list">
+                    <div class="transaction-item">
+                        <div class="transaction-icon deposit">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="transaction-content">
+                            <h4>Nạp tiền</h4>
+                            <p>Thẻ ngân hàng - ****1234</p>
+                            <span class="transaction-time">2 giờ trước</span>
+                        </div>
+                        <div class="transaction-amount positive">
+                            +500,000 VNĐ
+                        </div>
+                        <div class="transaction-status success">
+                            Thành công
+                        </div>
+                    </div>
+
+                    <div class="transaction-item">
+                        <div class="transaction-icon payment">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="transaction-content">
+                            <h4>Thanh toán đơn hàng</h4>
+                            <p>Đơn hàng #ORD-2024-001</p>
+                            <span class="transaction-time">1 ngày trước</span>
+                        </div>
+                        <div class="transaction-amount negative">
+                            -150,000 VNĐ
+                        </div>
+                        <div class="transaction-status success">
+                            Hoàn thành
+                        </div>
+                    </div>
+
+                    <div class="transaction-item">
+                        <div class="transaction-icon withdraw">
+                            <i class="fas fa-minus"></i>
+                        </div>
+                        <div class="transaction-content">
+                            <h4>Rút tiền</h4>
+                            <p>Chuyển khoản ngân hàng</p>
+                            <span class="transaction-time">3 ngày trước</span>
+                        </div>
+                        <div class="transaction-amount negative">
+                            -200,000 VNĐ
+                        </div>
+                        <div class="transaction-status pending">
+                            Đang xử lý
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Tab -->
+            <div class="tab-content" id="api">
+                <div class="content-header">
+                    <h2>Quản lý API Keys</h2>
+                    <p>Tạo và quản lý API keys để tích hợp</p>
+                </div>
+
+                <div class="api-section">
+                    <div class="api-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-key"></i> API Keys hiện tại</h3>
+                            <button class="btn btn-primary" id="generateApiKey">
+                                <i class="fas fa-plus"></i>
+                                Tạo API Key mới
+                            </button>
+                        </div>
+                        
+                        <div class="api-key-list">
+                            <div class="api-key-item">
+                                <div class="key-info">
+                                    <h4>API Key chính</h4>
+                                    <div class="key-value">
+                                        <input type="text" value="sk_live_1234567890abcdef" readonly>
+                                        <button class="copy-btn" data-clipboard-text="sk_live_1234567890abcdef">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    <p>Tạo ngày: 15/01/2024 | Sử dụng: 1,234 lần</p>
+                                </div>
+                                <div class="key-actions">
+                                    <button class="btn btn-secondary btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                        Xem logs
+                                    </button>
+                                    <button class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                        Xóa
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="api-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-code"></i> Tài liệu API</h3>
+                        </div>
+                        <div class="api-docs">
+                            <h4>Endpoint cơ bản:</h4>
+                            <code>https://api.socialservice.com/v1/orders</code>
+                            
+                            <h4>Headers cần thiết:</h4>
+                            <code>Authorization: Bearer YOUR_API_KEY</code>
+                            
+                            <h4>Ví dụ request:</h4>
+                            <pre><code>curl -X POST https://api.socialservice.com/v1/orders \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service": "facebook_likes",
+    "quantity": 1000,
+    "link": "https://facebook.com/post/123"
+  }'</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Chat Icons -->
+    <div class="floating-chat">
+        <div class="chat-icon">
+            <i class="fas fa-comments"></i>
+        </div>
+        <div class="chat-icon">
+            <i class="fas fa-headset"></i>
+        </div>
+    </div>
+
+    <script src="account-script.js"></script>
+</body>
+</html>

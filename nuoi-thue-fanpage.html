@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuôi Thuê Fanpage - Tăng Tương Tác VIP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <select class="service-select">
+                <option>Chọn dịch vụ</option>
+                <option>Tăng Like Fanpage</option>
+                <option>Đổi Tên Fanpage</option>
+                <option>Kháng Gậy Fanpage</option>
+                <option>Nuôi Thuê Fanpage</option>
+            </select>
+        </div>
+        <div class="top-bar-right">
+            <div class="dark-mode-toggle">
+                <input type="checkbox" id="darkModeToggle">
+                <label for="darkModeToggle">Dark Mode</label>
+            </div>
+            <div class="user-info">
+                <i class="fas fa-user"></i>
+                <span>hunkmike111</span>
+            </div>
+            <button class="logout-btn">Đăng xuất</button>
+        </div>
+    </div>
+
+    <div class="main-container service-page">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="logo-section">
+                <div class="logo">
+                    <div class="social-icons">
+                        <i class="fab fa-snapchat-ghost"></i>
+                        <i class="fab fa-facebook"></i>
+                        <i class="fab fa-tiktok"></i>
+                        <i class="fab fa-pinterest"></i>
+                        <i class="fab fa-youtube"></i>
+                        <i class="fab fa-instagram"></i>
+                    </div>
+                </div>
+                <h3>Quản Lý Chung</h3>
+            </div>
+
+            <nav class="main-nav">
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-home"></i>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-user"></i>
+                    <span>Thông tin tài khoản</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-wallet"></i>
+                    <span>Nạp Tiền</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-headset"></i>
+                    <span>Liên Hệ Hỗ Trợ</span>
+                </a>
+            </nav>
+
+            <div class="service-list">
+                <h4>DANH SÁCH DỊCH VỤ</h4>
+                <div class="service-category">
+                    <div class="service-category-header">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Dịch vụ khác</span>
+                        <span class="new-badge">Mới</span>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="service-submenu">
+                        <div class="service-subitem">
+                            <span>Voucher STK</span>
+                        </div>
+                                                    <div class="service-subitem">
+                                <span>DV Mở Khóa MXH</span>
+                            </div>
+                        <div class="service-subcategory active">
+                            <div class="service-subcategory-header">
+                                <i class="fas fa-unlock"></i>
+                                <span>Dịch vụ Fanpage</span>
+                                <i class="fas fa-chevron-down subcategory-toggle"></i>
+                            </div>
+                            <div class="service-submenu">
+                                <div class="service-subitem">
+                                    <span>Đổi Tên Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>Kháng Gậy Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>DV Nuôi Thuê Fanpage</span>
+                                </div>
+                                <div class="service-subitem">
+                                    <span>Tăng Like page SLL</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="content-wrapper">
+                <!-- Left Column - Form -->
+                <div class="form-section">
+                    <h2>Chọn server</h2>
+                    
+                    <!-- Server Options -->
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="server1" checked>
+                            <label for="server1">
+                                <div class="option-header">
+                                    <span class="option-title">16 bài/tháng</span>
+                                    <span class="option-price">2.500.000₫</span>
+                                    <span class="status-badge active">Hoạt động</span>
+                                </div>
+                            </label>
+                            <div class="option-details">
+                                <ul>
+                                    <li>16 bài đăng mỗi tháng</li>
+                                    <li>Nội dung chất lượng cao</li>
+                                    <li>Hình ảnh và video chuyên nghiệp</li>
+                                    <li>Tương tác và trả lời comment</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="server-option">
+                            <input type="radio" name="server" id="server2">
+                            <label for="server2">
+                                <div class="option-header">
+                                    <span class="option-title">32 bài/tháng</span>
+                                    <span class="option-price">4.500.000₫</span>
+                                    <span class="status-badge active">Hoạt động</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="server-option">
+                            <input type="radio" name="server" id="server3">
+                            <label for="server3">
+                                <div class="option-header">
+                                    <span class="option-title">60 bài/tháng</span>
+                                    <span class="option-price">8.000.000₫</span>
+                                    <span class="status-badge active">Hoạt động</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Form Fields -->
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label for="fanpage-link">Link Fanpage:</label>
+                            <input type="url" id="fanpage-link" placeholder="https://facebook.com/your-page">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="duration">Thời gian thuê:</label>
+                            <select id="duration">
+                                <option value="1">1 tháng</option>
+                                <option value="3">3 tháng</option>
+                                <option value="6">6 tháng</option>
+                                <option value="12">12 tháng</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="zalo-phone">Số Zalo:</label>
+                            <input type="tel" id="zalo-phone" placeholder="Nhập số điện thoại Zalo">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="estimated-price">Giá dự kiến:</label>
+                            <input type="text" id="estimated-price" value="2.500.000₫" readonly>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="notes">Ghi chú:</label>
+                            <input type="text" id="notes" placeholder="Ghi chú thêm (nếu có)">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn-create-request">Tạo yêu cầu</button>
+                        <button class="btn-manage">Quản lý yêu cầu</button>
+                    </div>
+                </div>
+
+                <!-- Right Column - Notes -->
+                <div class="notes-section">
+                    <div class="notes-header">
+                        <h3>Thông tin dịch vụ</h3>
+                    </div>
+                    
+                    <div class="service-info">
+                        <div class="info-section">
+                            <h5>Mô tả dịch vụ:</h5>
+                            <p>Dịch vụ nuôi thuê fanpage chuyên nghiệp, cung cấp nội dung chất lượng cao và quản lý tương tác cho fanpage của bạn.</p>
+                        </div>
+                        
+                        <div class="info-section">
+                            <h5>Quy trình thực hiện:</h5>
+                            <ul>
+                                <li>Khách hàng cung cấp thông tin fanpage và yêu cầu</li>
+                                <li>Đội ngũ chuyên gia phân tích và lập kế hoạch nội dung</li>
+                                <li>Thực hiện đăng bài và quản lý tương tác</li>
+                                <li>Báo cáo định kỳ và điều chỉnh chiến lược</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="info-section">
+                            <h5>Lưu ý quan trọng:</h5>
+                            <ul>
+                                <li>Cần cấp quyền quản trị viên cho hệ thống</li>
+                                <li>Nội dung được tạo theo brand guidelines</li>
+                                <li>Hỗ trợ tương tác và trả lời comment</li>
+                                <li>Báo cáo hiệu suất hàng tháng</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="contact-info">
+                            <h5>Liên hệ hỗ trợ:</h5>
+                            <p><i class="fas fa-phone"></i> Zalo: 0123456789</p>
+                            <p><i class="fas fa-envelope"></i> Email: support@tangtuongtac.com</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Chat Icons -->
+    <div class="floating-chat">
+        <a href="#" class="chat-icon zalo">
+            <i class="fab fa-facebook-messenger"></i>
+        </a>
+        <a href="#" class="chat-icon messenger">
+            <i class="fas fa-comments"></i>
+        </a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2024 Tăng Tương Tác VIP. Tất cả quyền được bảo lưu.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
