@@ -190,10 +190,16 @@ showNotification('Nội dung thông báo', 'success'); // success, error, warnin
 2. Hoặc connect với GitHub repository
 3. Tự động deploy khi có thay đổi
 
-### Vercel
+### Vercel (Frontend)
 1. Import project từ GitHub
-2. Vercel sẽ tự động detect và deploy
-3. Custom domain có thể được thêm
+2. Vercel sẽ tự động deploy frontend (HTML/CSS/JS)
+3. Thêm file `config.js` ở gốc và set: `window.API_BASE_URL = 'https://api.your-backend.com'`
+
+### Render/Railway (Backend)
+1. Tạo dịch vụ từ thư mục `backend/`
+2. Start command: `node server.js`
+3. Env cần có: `PORT=4000`, `DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_TOKEN`, `BANK_*`
+4. Nếu dùng Postgres: chỉnh `provider = "postgresql"` và chạy `npx prisma generate && npx prisma migrate deploy`
 
 ## 📞 Hỗ trợ
 
