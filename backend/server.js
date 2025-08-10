@@ -20,7 +20,12 @@ const BANK_NAME = process.env.BANK_NAME || 'VCB Demo';
 const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN || 'dev-webhook-token';
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: true, // Cho phép tất cả origin
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json());
 // Cho phép trả lời preflight cho mọi đường dẫn (fix Failed to fetch do CORS ở PATCH/PUT/POST)
 app.options('*', cors());
@@ -59,7 +64,19 @@ async function logActivity(userId, action, metadata) {
 }
 
 // Health
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => res.json({ 
+  ok: true, 
+  timestamp: new Date().toISOString(),
+  server: 'Tăng Tương Tác VIP API',
+  version: '1.0.0'
+}));
+
+// Test endpoint cho mobile
+app.get('/api/test', (req, res) => res.json({ 
+  message: 'Kết nối thành công từ mobile! 🎉',
+  timestamp: new Date().toISOString(),
+  userAgent: req.headers['user-agent'] || 'Unknown'
+}));
 
 // Auth
 app.post('/api/auth/register', async (req, res) => {
@@ -673,7 +690,13 @@ async function seed() {
 
 async function start() {
   await seed();
-  app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 API Server đang chạy:`);
+    console.log(`📍 Local: http://localhost:${PORT}`);
+    console.log(`🌐 Network: http://0.0.0.0:${PORT}`);
+    console.log(`📱 Mobile: http://[IP-MÁY-TÍNH]:${PORT}`);
+    console.log(`💡 Để truy cập từ điện thoại, sử dụng IP của máy tính + port ${PORT}`);
+  });
 }
 
 start().catch((e) => {
