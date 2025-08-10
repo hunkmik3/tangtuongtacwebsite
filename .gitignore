@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+backend/node_modules/
+
+# Environment files
+backend/.env
+
+# Local databases
+backend/prisma/*.db
+backend/prisma/*.sqlite
+backend/prisma/dev.db
+backend/prisma/prisma/dev.db
+
+# Logs
+*.log
+logs/
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
