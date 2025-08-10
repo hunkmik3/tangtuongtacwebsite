@@ -141,6 +141,29 @@ document.addEventListener('DOMContentLoaded', function() {
             overlay.className = 'drawer-overlay';
             document.body.appendChild(overlay);
         }
+        // Thêm nút X đóng vào sidebar và right-sidebar (nếu chưa có)
+        const ensureCloseBtn = (container) => {
+            if (!container) return;
+            const exists = container.querySelector('.drawer-close');
+            if (exists) return;
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'drawer-close';
+            closeBtn.setAttribute('aria-label', 'Đóng menu');
+            closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+            container.appendChild(closeBtn);
+        };
+        ensureCloseBtn(document.querySelector('.sidebar'));
+        ensureCloseBtn(document.querySelector('.right-sidebar'));
+        // Cập nhật biến CSS --topbar-h theo chiều cao thực tế để tính layout chính xác
+        const topbar = document.querySelector('.top-bar');
+        if (topbar) {
+            const setTopbarVar = () => {
+                const h = topbar.getBoundingClientRect().height;
+                document.documentElement.style.setProperty('--topbar-h', `${Math.round(h)}px`);
+            };
+            setTopbarVar();
+            window.addEventListener('resize', setTopbarVar, { passive: true });
+        }
     })();
 
     // Mobile drawer behavior
@@ -150,6 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const overlay = document.querySelector('.drawer-overlay');
         const btnLeft = document.querySelector('.menu-toggle.left');
         const btnRight = document.querySelector('.menu-toggle.right');
+        const closeBtns = document.querySelectorAll('.drawer-close');
         function openSide(which){
             if (which === 'left' && sidebar){ sidebar.classList.add('active'); }
             if (which === 'right' && rightSidebar){ rightSidebar.classList.add('active'); }
@@ -165,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btnLeft) btnLeft.addEventListener('click', ()=> openSide('left'));
         if (btnRight) btnRight.addEventListener('click', ()=> openSide('right'));
         if (overlay) overlay.addEventListener('click', closeAll);
+        closeBtns.forEach(btn => btn.addEventListener('click', closeAll));
         // Close on ESC
         document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeAll(); });
         // Close when navigating sidebar links on small screens

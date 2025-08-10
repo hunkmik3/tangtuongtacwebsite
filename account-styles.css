@@ -144,7 +144,7 @@ body.dark-mode input::placeholder {
 /* Main Container */
 .main-container {
     display: flex;
-    min-height: calc(100vh - 80px);
+    min-height: calc(100vh - var(--topbar-h));
 }
 
 /* Left Sidebar */
