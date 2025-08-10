@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tăng Share Facebook</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+  <div class="main-content">
+    <div class="content-wrapper">
+      <div class="form-section">
+        <h3>Tăng Share Facebook</h3>
+
+        <div class="form-group">
+          <label><input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc</label>
+        </div>
+
+        <div class="form-group">
+          <label for="fb-share-link">Link bài viết:</label>
+          <input type="url" id="fb-share-link" placeholder="https://facebook.com/{post}" required />
+        </div>
+
+        <div class="form-group">
+          <label>Chọn server:</label>
+          <div class="server-options">
+            <div class="server-option selected">
+              <input type="radio" name="server" id="server1" checked data-rate="276" />
+              <label for="server1">
+                <span class="server-name">Server: Share <span class="server-price">276₫</span></span>
+                <div class="server-info">
+                  <span class="server-details">- Tối thiểu/Tối đa: 50/50k</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="quantity">Số lượng:</label>
+          <input type="number" id="quantity" value="100" min="1" />
+        </div>
+
+        <div class="form-group">
+          <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+          <input type="text" id="price-per-interaction" readonly />
+        </div>
+
+        <div class="form-group">
+          <label for="estimated-price">Tổng Giá:</label>
+          <input type="text" id="estimated-price" readonly />
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-create-request submit-btn">Mua</button>
+          <button class="btn-manage manage-id-btn">Quản Lý ID</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    const API_BASE = window.API_BASE_URL || 'http://localhost:4000';
+    async function apiFetch(path, options = {}) {
+      const token = localStorage.getItem('auth.token');
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Lỗi API: ${res.status}`);
+      return data;
+    }
+    async function getServiceIdByName(name){
+      const services = await apiFetch('/api/services');
+      const s = services.find(x => x.name.toLowerCase().includes(name.toLowerCase()));
+      if(!s) throw new Error('Không tìm thấy dịch vụ phù hợp');
+      return s.id;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      if (typeof hydrateInstagramPage === 'function') hydrateInstagramPage();
+      const btn = document.querySelector('.submit-btn');
+      if (btn) btn.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        try{
+          const serviceId = await getServiceIdByName('Tăng Share Facebook');
+          const quantity = parseInt(document.getElementById('quantity').value)||0;
+          const note = document.getElementById('notes')?.value || '';
+          const order = await apiFetch('/api/orders',{ method:'POST', body: JSON.stringify({ serviceId, quantity, note })});
+          alert('Tạo đơn thành công #' + order.id);
+        }catch(err){ alert(err.message || 'Lỗi tạo đơn'); }
+      });
+    });
+  </script>
+</body>
+</html>
+
+

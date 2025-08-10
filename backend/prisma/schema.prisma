@@ -1,0 +1,131 @@
+// Prisma schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  balanceVnd   Int       @default(0)
+  // Thông tin hồ sơ mở rộng
+  fullName     String?
+  phone        String?
+  birthday     DateTime?
+  address      String?
+  city         String?
+  country      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  orders       Order[]
+  topups       Topup[]
+  activityLogs ActivityLog[]
+  contacts     CRMContact[]
+  tasks        CRMTask[]   @relation("UserTasks")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  rateVnd     Int       @default(0)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orders      Order[]
+}
+
+model Order {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      Int
+  service     Service   @relation(fields: [serviceId], references: [id])
+  serviceId   Int
+  quantity    Int
+  amountVnd   Int
+  status      OrderStatus @default(PENDING)
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELED
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model Topup {
+  id         Int          @id @default(autoincrement())
+  user       User         @relation(fields: [userId], references: [id])
+  userId     Int
+  amountVnd  Int
+  status     TopupStatus  @default(PENDING)
+  provider   String?
+  providerRef String?
+  contentCode String?
+  qrUrl      String?
+  extra      Json?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+enum TopupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model CRMContact {
+  id        Int      @id @default(autoincrement())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+  name      String
+  email     String?
+  phone     String?
+  tags      Json?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CRMTask {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  assignee    User?      @relation("UserTasks", fields: [assigneeId], references: [id])
+  assigneeId  Int?
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}

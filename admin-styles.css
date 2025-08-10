@@ -450,6 +450,7 @@ body.dark-mode textarea {
     text-decoration: none;
     font-size: 1rem;
 }
+.btn:focus-visible { outline: 3px solid rgba(102,126,234,.35); outline-offset: 2px; }
 
 .btn-primary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

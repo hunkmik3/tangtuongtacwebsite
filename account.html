@@ -23,7 +23,7 @@
                 <label for="darkModeToggle">Dark Mode</label>
             </div>
             <div class="user-info">
-                <span>Xin Chào, hunkmike111</span>
+                <span>Xin Chào, <span id="topbar-username">...</span></span>
                 <i class="fas fa-user-circle"></i>
             </div>
             <button class="logout-btn">Đăng Xuất</button>
@@ -40,9 +40,9 @@
                     <div class="online-status"></div>
                 </div>
                 <div class="profile-info">
-                    <h3>hunkmike111</h3>
-                    <p class="user-level">VIP Member</p>
-                    <p class="join-date">Thành viên từ: 15/01/2024</p>
+                    <h3 id="sidebar-username">...</h3>
+                    <p class="user-level" id="sidebar-level">VIP Member</p>
+                    <p class="join-date">Thành viên từ: <span id="sidebar-join-date">--/--/----</span></p>
                 </div>
             </div>
 
@@ -89,21 +89,21 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="fullname">Họ và tên</label>
-                                <input type="text" id="fullname" value="Nguyễn Văn A">
+                                <input type="text" id="fullname" value="" placeholder="Họ và tên">
                             </div>
                             <div class="form-group">
                                 <label for="email">Email</label>
-                                <input type="email" id="email" value="hunkmike111@gmail.com">
+                                <input type="email" id="email" value="" required placeholder="email@domain.com">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="phone">Số điện thoại</label>
-                                <input type="tel" id="phone" value="0123456789">
+                                <input type="tel" id="phone" value="" placeholder="Số điện thoại">
                             </div>
                             <div class="form-group">
                                 <label for="birthday">Ngày sinh</label>
-                                <input type="date" id="birthday" value="1990-01-01">
+                                <input type="date" id="birthday" value="">
                             </div>
                         </div>
                     </div>
@@ -112,26 +112,26 @@
                         <h3>Thông tin liên hệ</h3>
                         <div class="form-group">
                             <label for="address">Địa chỉ</label>
-                            <textarea id="address" rows="3">123 Đường ABC, Quận 1, TP.HCM</textarea>
+                                <textarea id="address" rows="3" placeholder="Địa chỉ"></textarea>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="city">Thành phố</label>
-                                <input type="text" id="city" value="TP.HCM">
+                                <input type="text" id="city" value="" placeholder="Thành phố">
                             </div>
                             <div class="form-group">
                                 <label for="country">Quốc gia</label>
-                                <input type="text" id="country" value="Việt Nam">
+                                <input type="text" id="country" value="" placeholder="Quốc gia">
                             </div>
                         </div>
                     </div>
 
-                    <div class="form-actions">
+                        <div class="form-actions">
                         <button class="btn btn-primary" id="saveProfile">
                             <i class="fas fa-save"></i>
                             Lưu thay đổi
                         </button>
-                        <button class="btn btn-secondary">
+                        <button class="btn btn-secondary" id="resetProfile">
                             <i class="fas fa-undo"></i>
                             Khôi phục
                         </button>
@@ -326,121 +326,24 @@
                     <input type="date" class="date-filter" value="2024-01-15">
                 </div>
 
-                <div class="activity-list">
-                    <div class="activity-item">
-                        <div class="activity-icon login">
-                            <i class="fas fa-sign-in-alt"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>Đăng nhập thành công</h4>
-                            <p>Đăng nhập từ Windows 10 - Chrome</p>
-                            <span class="activity-time">2 giờ trước</span>
-                        </div>
-                    </div>
-
-                    <div class="activity-item">
-                        <div class="activity-icon order">
-                            <i class="fas fa-shopping-cart"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>Đặt hàng mới</h4>
-                            <p>Đơn hàng #ORD-2024-001 - 1000 Like Facebook</p>
-                            <span class="activity-time">1 ngày trước</span>
-                        </div>
-                    </div>
-
-                    <div class="activity-item">
-                        <div class="activity-icon payment">
-                            <i class="fas fa-credit-card"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>Nạp tiền thành công</h4>
-                            <p>Nạp 500,000 VNĐ qua thẻ ngân hàng</p>
-                            <span class="activity-time">2 ngày trước</span>
-                        </div>
-                    </div>
-
-                    <div class="activity-item">
-                        <div class="activity-icon settings">
-                            <i class="fas fa-cog"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>Cập nhật thông tin</h4>
-                            <p>Thay đổi thông tin cá nhân</p>
-                            <span class="activity-time">3 ngày trước</span>
-                        </div>
-                    </div>
-                </div>
+                <div class="activity-list" id="activity-list"></div>
             </div>
 
             <!-- Transactions Tab -->
             <div class="tab-content" id="transactions">
                 <div class="content-header">
                     <h2>Lịch sử giao dịch</h2>
-                    <p>Xem tất cả giao dịch nạp/rút tiền</p>
+                    <p>Nạp tiền qua QR và xem lịch sử giao dịch</p>
                 </div>
 
-                <div class="transaction-filters">
-                    <select class="filter-select">
-                        <option>Tất cả giao dịch</option>
-                        <option>Nạp tiền</option>
-                        <option>Rút tiền</option>
-                        <option>Thanh toán</option>
-                    </select>
-                    <input type="date" class="date-filter" value="2024-01-15">
+                <div class="transaction-actions" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+                    <input type="number" id="topup-amount" placeholder="Nhập số tiền (VND)" min="10000" value="100000" style="padding:10px;border:2px solid #e1e5e9;border-radius:10px" />
+                    <button class="btn btn-primary" id="topup-create"><i class="fas fa-qrcode"></i> Tạo QR nạp tiền</button>
+                    <div id="topup-result" style="display:none;align-items:center;gap:12px"></div>
                 </div>
 
                 <div class="transaction-list">
-                    <div class="transaction-item">
-                        <div class="transaction-icon deposit">
-                            <i class="fas fa-plus"></i>
-                        </div>
-                        <div class="transaction-content">
-                            <h4>Nạp tiền</h4>
-                            <p>Thẻ ngân hàng - ****1234</p>
-                            <span class="transaction-time">2 giờ trước</span>
-                        </div>
-                        <div class="transaction-amount positive">
-                            +500,000 VNĐ
-                        </div>
-                        <div class="transaction-status success">
-                            Thành công
-                        </div>
-                    </div>
-
-                    <div class="transaction-item">
-                        <div class="transaction-icon payment">
-                            <i class="fas fa-shopping-cart"></i>
-                        </div>
-                        <div class="transaction-content">
-                            <h4>Thanh toán đơn hàng</h4>
-                            <p>Đơn hàng #ORD-2024-001</p>
-                            <span class="transaction-time">1 ngày trước</span>
-                        </div>
-                        <div class="transaction-amount negative">
-                            -150,000 VNĐ
-                        </div>
-                        <div class="transaction-status success">
-                            Hoàn thành
-                        </div>
-                    </div>
-
-                    <div class="transaction-item">
-                        <div class="transaction-icon withdraw">
-                            <i class="fas fa-minus"></i>
-                        </div>
-                        <div class="transaction-content">
-                            <h4>Rút tiền</h4>
-                            <p>Chuyển khoản ngân hàng</p>
-                            <span class="transaction-time">3 ngày trước</span>
-                        </div>
-                        <div class="transaction-amount negative">
-                            -200,000 VNĐ
-                        </div>
-                        <div class="transaction-status pending">
-                            Đang xử lý
-                        </div>
-                    </div>
+                    <div id="topup-list"></div>
                 </div>
             </div>
 

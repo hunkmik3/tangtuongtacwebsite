@@ -1,0 +1,15 @@
+{
+  // Tắt auto reload gây bởi Live Server khi các file trong backend/ hoặc file DB thay đổi
+  "liveServer.settings.ignoreFiles": [
+    "**/backend/**",
+    "**/backend/prisma/**",
+    "**/*.db",
+    "**/*.db-journal",
+    "**/*.sqlite"
+  ],
+  // Hạn chế full reload (HTML) khi có thay đổi nhỏ
+  "liveServer.settings.fullReload": false,
+  // Không chờ delay reload
+  "liveServer.settings.wait": 0
+}
+

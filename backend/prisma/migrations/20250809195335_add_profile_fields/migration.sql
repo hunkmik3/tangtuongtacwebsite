@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "address" TEXT;
+ALTER TABLE "User" ADD COLUMN "birthday" DATETIME;
+ALTER TABLE "User" ADD COLUMN "city" TEXT;
+ALTER TABLE "User" ADD COLUMN "country" TEXT;
+ALTER TABLE "User" ADD COLUMN "fullName" TEXT;
+ALTER TABLE "User" ADD COLUMN "phone" TEXT;

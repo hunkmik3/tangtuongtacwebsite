@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tăng Comment Facebook</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+  <div class="main-content">
+    <div class="content-wrapper">
+      <div class="form-section">
+        <h3>Tăng Comment Facebook</h3>
+
+        <div class="form-group">
+          <label for="fb-comment-link">Link bài viết:</label>
+          <input type="url" id="fb-comment-link" placeholder="https://facebook.com/{post}" required />
+        </div>
+
+        <div class="form-group">
+          <label>Chọn server:</label>
+          <div class="server-options">
+            <div class="server-option selected">
+              <input type="radio" name="server" id="server1" checked data-rate="500" />
+              <label for="server1">
+                <span class="server-name">Server: Comment <span class="server-price">500₫</span></span>
+                <div class="server-info">
+                  <span class="server-details">- Tối thiểu/Tối đa: 10/10k</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="comment-list">Danh Sách Bình Luận (0):</label>
+          <textarea id="comment-list" rows="5" placeholder="Mỗi dòng 1 bình luận."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+          <input type="text" id="price-per-interaction" readonly />
+        </div>
+
+        <div class="form-group">
+          <label for="estimated-price">Tổng Giá:</label>
+          <input type="text" id="estimated-price" readonly />
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-create-request submit-btn">Mua</button>
+          <button class="btn-manage manage-id-btn">Quản Lý ID</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    const API_BASE = window.API_BASE_URL || 'http://localhost:4000';
+    async function apiFetch(path, options = {}) {
+      const token = localStorage.getItem('auth.token');
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Lỗi API: ${res.status}`);
+      return data;
+    }
+    async function getServiceIdByName(name){
+      const services = await apiFetch('/api/services');
+      const s = services.find(x => x.name.toLowerCase().includes(name.toLowerCase()));
+      if(!s) throw new Error('Không tìm thấy dịch vụ phù hợp');
+      return s.id;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      if (typeof hydrateInstagramPage === 'function') hydrateInstagramPage();
+      const btn = document.querySelector('.submit-btn');
+      if (btn) btn.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        try{
+          const serviceId = await getServiceIdByName('Tăng Comment Facebook');
+          const lines = (document.getElementById('comment-list').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+          const quantity = lines.length;
+          if (quantity <= 0) throw new Error('Vui lòng nhập danh sách bình luận');
+          const note = document.getElementById('notes')?.value || '';
+          const order = await apiFetch('/api/orders',{ method:'POST', body: JSON.stringify({ serviceId, quantity, note })});
+          alert('Tạo đơn thành công #' + order.id);
+        }catch(err){ alert(err.message || 'Lỗi tạo đơn'); }
+      });
+    });
+  </script>
+</body>
+</html>
+
+

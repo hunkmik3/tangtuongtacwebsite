@@ -1,4 +1,64 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // --- API helpers (tái sử dụng base URL và token lưu trong localStorage)
+    function getApiBases() {
+        const bases = [];
+        const stored = localStorage.getItem('api.base');
+        if (typeof window !== 'undefined' && window.API_BASE_URL) bases.push(String(window.API_BASE_URL).replace(/\/$/, ''));
+        if (stored) bases.push(String(stored).replace(/\/$/, ''));
+        const isHttp = location.protocol.startsWith('http');
+        if (isHttp) bases.push(`${location.protocol}//${location.hostname}:4000`);
+        bases.push('http://localhost:4000', 'http://127.0.0.1:4000');
+        return [...new Set(bases)];
+    }
+
+    async function getJsonAnyAuth(path) {
+        let lastErr = new Error('Không thể kết nối máy chủ');
+        const token = localStorage.getItem('auth.token');
+        for (const base of getApiBases()) {
+            try {
+                const res = await fetch(`${base}${path}`, { headers: { 'Authorization': token ? `Bearer ${token}` : '' } });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const err = new Error(data?.error || `HTTP ${res.status}`);
+                    err.status = res.status;
+                    throw err;
+                }
+                try { localStorage.setItem('api.base', String(base)); } catch {}
+                return data;
+            } catch (e) { lastErr = e; }
+        }
+        throw lastErr;
+    }
+
+    async function updateProfileAny(path, body) {
+        const methods = ['PATCH', 'PUT', 'POST'];
+        const token = localStorage.getItem('auth.token');
+        let lastErr = new Error('Không thể kết nối máy chủ');
+        for (const base of getApiBases()) {
+            for (const method of methods) {
+                try {
+                    const res = await fetch(`${base}${path}`, {
+                        method,
+                        headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const text = await res.text();
+                    let data = {};
+                    try { data = text ? JSON.parse(text) : {}; } catch { /* may be HTML on proxies */ }
+                    if (!res.ok) {
+                        const err = new Error(data?.error || `HTTP ${res.status}`);
+                        err.status = res.status;
+                        throw err;
+                    }
+                    try { localStorage.setItem('api.base', String(base)); } catch {}
+                    return data;
+                } catch (e) {
+                    lastErr = e;
+                }
+            }
+        }
+        throw lastErr;
+    }
     // Dark Mode Toggle
     const darkModeToggle = document.getElementById('darkModeToggle');
     const body = document.body;
@@ -63,37 +123,109 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Nạp dữ liệu hồ sơ từ API khi vào trang
+    (async () => {
+        try {
+            const me = await getJsonAnyAuth('/api/users/me');
+            const username = me?.username || 'User';
+            const joinDate = me?.createdAt ? new Date(me.createdAt).toLocaleDateString('vi-VN') : '';
+            const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text ?? ''; };
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+
+            setText('topbar-username', username);
+            setText('sidebar-username', username);
+            setText('sidebar-join-date', joinDate);
+
+            setVal('fullname', me.fullName || '');
+            setVal('email', me.email || '');
+            setVal('phone', me.phone || '');
+            if (me.birthday) {
+                const d = new Date(me.birthday);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                setVal('birthday', `${yyyy}-${mm}-${dd}`);
+            } else setVal('birthday', '');
+            const addrEl = document.getElementById('address'); if (addrEl) addrEl.value = me.address || '';
+            setVal('city', me.city || '');
+            setVal('country', me.country || '');
+        } catch (e) {
+            console.warn('Không thể tải thông tin người dùng', e);
+        }
+    })();
+
     // Form Validation and Submission
     const saveProfileBtn = document.getElementById('saveProfile');
     const profileForm = document.querySelector('.profile-form');
     
     if (saveProfileBtn) {
         saveProfileBtn.addEventListener('click', function() {
-            // Simulate form validation
             const inputs = profileForm.querySelectorAll('input[required], textarea[required]');
             let isValid = true;
-            
             inputs.forEach(input => {
                 if (!input.value.trim()) {
                     isValid = false;
                     input.style.borderColor = '#f44336';
-                    setTimeout(() => {
-                        input.style.borderColor = '#e1e5e9';
-                    }, 3000);
+                    setTimeout(() => { input.style.borderColor = '#e1e5e9'; }, 1500);
                 }
             });
-            
-            if (isValid) {
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
-                this.disabled = true;
-                
-                setTimeout(() => {
+
+            if (!isValid) {
+                showNotification('Vui lòng điền đầy đủ thông tin bắt buộc!', 'error');
+                return;
+            }
+
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+            this.disabled = true;
+
+            const profileData = {
+                fullName: document.getElementById('fullname').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                birthday: document.getElementById('birthday').value || null,
+                address: document.getElementById('address') ? document.getElementById('address').value.trim() : null,
+                city: document.getElementById('city') ? document.getElementById('city').value.trim() : null,
+                country: document.getElementById('country') ? document.getElementById('country').value.trim() : null
+            };
+
+            updateProfileAny('/api/users/me', profileData)
+                .then(() => {
                     showNotification('Thông tin đã được cập nhật thành công!', 'success');
+                })
+                .catch(err => {
+                    const msg = (err && err.message) ? err.message : 'Cập nhật thất bại';
+                    showNotification(msg, 'error');
+                })
+                .finally(() => {
                     this.innerHTML = '<i class="fas fa-save"></i> Lưu thay đổi';
                     this.disabled = false;
-                }, 2000);
+                });
+        });
+    }
+
+    // Bỏ nạp từ localStorage vì đã dùng dữ liệu từ API
+
+    // Reset profile button
+    const resetBtn = document.getElementById('resetProfile');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const savedProfileRaw2 = localStorage.getItem('account.profile');
+            if (savedProfileRaw2) {
+                try {
+                    const p = JSON.parse(savedProfileRaw2);
+                    document.getElementById('fullname').value = p.fullname || '';
+                    document.getElementById('email').value = p.email || '';
+                    document.getElementById('phone').value = p.phone || '';
+                    document.getElementById('birthday').value = p.birthday || '';
+                    const addressEl = document.getElementById('address'); if (addressEl) addressEl.value = p.address || '';
+                    const cityEl = document.getElementById('city'); if (cityEl) cityEl.value = p.city || '';
+                    const countryEl = document.getElementById('country'); if (countryEl) countryEl.value = p.country || '';
+                    showNotification('Đã khôi phục theo dữ liệu đã lưu.', 'info');
+                } catch {}
             } else {
-                showNotification('Vui lòng điền đầy đủ thông tin bắt buộc!', 'error');
+                profileForm.reset();
+                showNotification('Không có dữ liệu đã lưu để khôi phục.', 'warning');
             }
         });
     }
@@ -284,6 +416,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
                 showNotification('Đang đăng xuất...', 'info');
                 setTimeout(() => {
+                    localStorage.removeItem('auth.token');
+                    localStorage.removeItem('auth.user');
                     window.location.href = 'login.html';
                 }, 1500);
             }
@@ -511,5 +645,139 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Load activity list and subscribe realtime
+    (function initActivity(){
+        const list = document.getElementById('activity-list');
+        if (!list) return;
+        const render = (items)=>{
+            const iconMap = { LOGIN:'sign-in-alt', REGISTER:'user-plus', UPDATE_PROFILE:'cog', CREATE_ORDER:'shopping-cart' };
+            list.innerHTML = (items||[]).map(a=>{
+                const icon = iconMap[a.action] || 'info-circle';
+                const time = new Date(a.createdAt).toLocaleString('vi-VN');
+                let title = a.action;
+                let desc = '';
+                if (a.action === 'CREATE_ORDER' && a.metadata?.orderId) {
+                    title = 'Đặt hàng mới';
+                    const orderId = a.metadata.orderId;
+                    const qty = a.metadata?.quantity;
+                    const svc = a.metadata?.serviceName;
+                    const info = (qty && svc) ? ` • ${qty.toLocaleString('vi-VN')} ${svc}` : '';
+                    desc = `Đơn hàng #${String(orderId).padStart(5,'0')}${info}`;
+                } else if (a.action === 'ORDER_STATUS' && a.metadata?.orderId) {
+                    const st = String(a.metadata?.status || '').toUpperCase();
+                    const map = { PENDING: 'Đang xử lý', PROCESSING: 'Đang xử lý', COMPLETED: 'Đã hoàn thành', CANCELED: 'Đã hủy' };
+                    title = `Trạng thái đơn hàng`;
+                    const orderId = a.metadata.orderId;
+                    const qty = a.metadata?.quantity;
+                    const svc = a.metadata?.serviceName;
+                    const extra = (qty && svc) ? ` • ${qty.toLocaleString('vi-VN')} ${svc}` : '';
+                    desc = `#${String(orderId).padStart(5,'0')} • ${map[st] || st}${extra}`;
+                } else if (a.action === 'LOGIN') { title = 'Đăng nhập thành công'; }
+                else if (a.action === 'UPDATE_PROFILE') { title = 'Cập nhật thông tin'; }
+                return `
+                <div class="activity-item">
+                  <div class="activity-icon">
+                    <i class="fas fa-${icon}"></i>
+                  </div>
+                  <div class="activity-content">
+                    <h4>${title}</h4>
+                    <p>${desc}</p>
+                    <span class="activity-time">${time}</span>
+                  </div>
+                </div>`;
+            }).join('');
+        };
+        // initial load
+        const filterSelect = document.querySelector('#activity .activity-filters .filter-select');
+        const dateInput = document.querySelector('#activity .activity-filters .date-filter');
+        async function reloadWithFilter(){
+            try {
+                const all = await getJsonAnyAuth('/api/activity/recent?limit=50');
+                const type = filterSelect ? filterSelect.value : 'Tất cả hoạt động';
+                const dateStr = dateInput ? dateInput.value : '';
+                let items = all;
+                if (type && type !== 'Tất cả hoạt động') {
+                    const map = { 'Đăng nhập': 'LOGIN', 'Đơn hàng': 'CREATE_ORDER', 'Giao dịch': 'PAYMENT', 'Cài đặt': 'UPDATE_PROFILE' };
+                    const key = map[type] || type;
+                    items = items.filter(a => a.action === key || (a.action === 'ORDER_STATUS' && key === 'CREATE_ORDER'));
+                }
+                if (dateStr) {
+                    const day = new Date(dateStr);
+                    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                    const end = new Date(start.getTime() + 24*60*60*1000);
+                    items = items.filter(a => { const t = new Date(a.createdAt).getTime(); return t>=start && t<end; });
+                }
+                render(items);
+            } catch {}
+        }
+        reloadWithFilter();
+        if (filterSelect) filterSelect.addEventListener('change', reloadWithFilter);
+        if (dateInput) dateInput.addEventListener('change', reloadWithFilter);
+        // sse
+        try {
+            const token = localStorage.getItem('auth.token');
+            const base = getApiBases()[0];
+            const es = new EventSource(`${base}/api/activity/stream?token=${encodeURIComponent(token||'')}`);
+            es.addEventListener('activity', async ()=>{ reloadWithFilter(); });
+        } catch {}
+    })();
+
     console.log('Account management page loaded successfully!');
+
+    // Topup UI logic
+    (function initTopup(){
+        const btn = document.getElementById('topup-create');
+        const amountEl = document.getElementById('topup-amount');
+        const result = document.getElementById('topup-result');
+        const listWrap = document.getElementById('topup-list');
+        if (!btn) return;
+        const fmt = (v)=> `₫${(v||0).toLocaleString('vi-VN')}`;
+        async function loadTopups(){
+            try{
+                const items = await getJsonAnyAuth('/api/topups');
+                if (listWrap) {
+                    listWrap.innerHTML = (items||[]).map(t=>{
+                        const statusMap = { PENDING:'Đang chờ', COMPLETED:'Thành công', FAILED:'Thất bại', CANCELED:'Hủy' };
+                        const created = new Date(t.createdAt).toLocaleString('vi-VN');
+                        const amount = fmt(t.amountVnd);
+                        const statusCls = String(t.status).toLowerCase();
+                        return `
+                        <div class="transaction-item">
+                          <div class="transaction-icon deposit"><i class="fas fa-plus"></i></div>
+                          <div class="transaction-content">
+                            <h4>Nạp tiền</h4>
+                            <p>Mã: ${t.contentCode || '-'} | Ngân hàng: ${t.provider || ''}</p>
+                            <span class="transaction-time">${created}</span>
+                          </div>
+                          <div class="transaction-amount positive">${amount}</div>
+                          <div class="transaction-status ${statusCls}">${statusMap[t.status]||t.status}</div>
+                        </div>`;
+                    }).join('');
+                }
+            }catch{}
+        }
+        loadTopups();
+        btn.addEventListener('click', async ()=>{
+            const amount = Math.max(parseInt(amountEl.value)||0, 10000);
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo QR...';
+            try{
+                const data = await patchJsonAnyAuth('/api/topup/create'.replace('PATCH','POST'), { amountVnd: amount });
+                result.style.display = 'flex';
+                result.innerHTML = `
+                  <img src="${data.qrUrl}" alt="VietQR" style="height:120px;border-radius:10px;border:1px solid #eee" />
+                  <div>
+                    <div><strong>Nội dung chuyển khoản:</strong> <code style="background:#f1f3f5;padding:2px 6px;border-radius:6px">${data.contentCode}</code></div>
+                    <div><strong>Số tiền:</strong> ${fmt(data.amountVnd)}</div>
+                    <div><strong>Ngân hàng:</strong> ${data.bank?.name||''} (${data.bank?.account})</div>
+                  </div>
+                `;
+                showNotification('Đã tạo yêu cầu nạp tiền. Vui lòng quét QR và chuyển khoản đúng nội dung.', 'success');
+                loadTopups();
+            }catch(err){
+                showNotification(err.message||'Không tạo được yêu cầu nạp', 'error');
+            }finally{
+                btn.disabled = false; btn.innerHTML = '<i class="fas fa-qrcode"></i> Tạo QR nạp tiền';
+            }
+        });
+    })();
 });

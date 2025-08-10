@@ -11,18 +11,7 @@
 <body>
     <!-- Top Bar -->
     <div class="top-bar">
-        <div class="top-bar-left">
-            <select class="service-select">
-                <option>Chọn dịch vụ</option>
-                <option>Tăng Like Facebook</option>
-                <option>Tăng Follow Facebook</option>
-                <option>Tăng Comment Facebook</option>
-                <option>Tăng Share Facebook</option>
-                <option>Instagram</option>
-                <option>TikTok</option>
-                <option>YouTube</option>
-            </select>
-        </div>
+        <div class="top-bar-left"></div>
         <div class="top-bar-right">
             <div class="dark-mode-toggle">
                 <input type="checkbox" id="darkModeToggle">
@@ -58,7 +47,7 @@
                     <i class="fas fa-home"></i>
                     <span>Trang chủ</span>
                 </a>
-                <a href="#" class="nav-item">
+                <a href="account.html" class="nav-item">
                     <i class="fas fa-user"></i>
                     <span>Thông tin tài khoản</span>
                 </a>
@@ -91,9 +80,6 @@
                             <span>Tăng Comment Instagram</span>
                         </div>
                         <div class="service-subitem">
-                            <span>Tăng View Story</span>
-                        </div>
-                        <div class="service-subitem">
                             <span>Tăng View Reels</span>
                         </div>
                     </div>
@@ -111,122 +97,115 @@
 
                 <div class="form-section">
                     <div class="form-group">
-                        <label for="instagram-url">Link Instagram Post:</label>
-                        <input type="url" id="instagram-url" placeholder="Nhập link bài viết Instagram cần tăng like" required>
+                        <label>
+                            <input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="instagram-url">Link bài viết:</label>
+                        <input type="url" id="instagram-url" placeholder="https://www.instagram.com/p/id/" required>
                     </div>
 
                     <div class="form-group">
-                        <label>Số lượng like cần tăng:</label>
+                        <label>Số lượng:</label>
                         <input type="number" id="quantity" placeholder="Nhập số lượng like cần tăng" value="100" min="1" max="10000">
                     </div>
 
                     <div class="form-group">
-                        <label>Chọn Server:</label>
+                        <label>Chọn server:</label>
                         <div class="server-options">
-                            <div class="server-option">
-                                <input type="radio" name="server" id="server1" checked data-rate="15.5" onchange="calculatePriceForInstagram()">
-                                <label for="server1">
-                                    <span class="server-name">Server VIP 1</span>
-                                    <span class="server-price">15.5₫/like</span>
-                                    <span class="server-speed">Tốc độ: 100-500 like/giờ</span>
-                                </label>
-                            </div>
-                            <div class="server-option">
-                                <input type="radio" name="server" id="server2" data-rate="12.8" onchange="calculatePriceForInstagram()">
-                                <label for="server2">
-                                    <span class="server-name">Server VIP 2</span>
-                                    <span class="server-price">12.8₫/like</span>
-                                    <span class="server-speed">Tốc độ: 200-800 like/giờ</span>
-                                </label>
-                            </div>
-                            <div class="server-option">
-                                <input type="radio" name="server" id="server3" data-rate="10.2" onchange="calculatePriceForInstagram()">
-                                <label for="server3">
-                                    <span class="server-name">Server VIP 3</span>
-                                    <span class="server-price">10.2₫/like</span>
-                                    <span class="server-speed">Tốc độ: 500-1000 like/giờ</span>
-                                </label>
+                            <div class="server-category">
+                                <h4>Like việt</h4>
+                                <div class="server-option">
+                                    <input type="radio" name="server" id="server1" checked data-rate="27.6">
+                                    <label for="server1">
+                                        <span class="server-name">Server 1: 100-300 / 24 giờ. ( đang tụt 10-20%) 27.6₫ Hoạt động</span>
+                                        <div class="server-info">
+                                            <span class="server-details">Tối thiểu/Tối đa: 100/50k</span>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="estimated-price">Tổng giá dự kiến:</label>
+                        <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                        <input type="text" id="price-per-interaction" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="estimated-price">Tổng Giá:</label>
                         <input type="text" id="estimated-price" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Ghi chú:</label>
+                        <textarea id="notes" placeholder="Nhập ghi chú nếu cần" rows="3"></textarea>
                     </div>
 
                     <div class="form-group">
                         <button type="submit" class="submit-btn">
                             <i class="fas fa-rocket"></i>
-                            Đặt Hàng Ngay
+                            Mua
+                        </button>
+                        <button type="button" class="manage-id-btn">
+                            <i class="fas fa-calendar"></i>
+                            Quản Lý ID
                         </button>
                     </div>
                 </div>
 
-                <div class="service-info">
-                    <h3>Thông tin dịch vụ</h3>
-                    <ul>
-                        <li><i class="fas fa-check"></i> Like thật từ tài khoản Instagram thật</li>
-                        <li><i class="fas fa-check"></i> Không yêu cầu mật khẩu tài khoản</li>
-                        <li><i class="fas fa-check"></i> Bảo hành 30 ngày</li>
-                        <li><i class="fas fa-check"></i> Hỗ trợ 24/7 qua Zalo, Facebook</li>
-                        <li><i class="fas fa-check"></i> Giao dịch an toàn, bảo mật</li>
-                    </ul>
-                </div>
+                
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
     <script>
-        // Specific price calculation function for Instagram Like page
-        function calculatePriceForInstagram() {
-            const selectedServer = document.querySelector('input[name="server"]:checked');
-            const quantityInput = document.getElementById('quantity');
-            const estimatedPriceInput = document.getElementById('estimated-price');
-            
-            console.log('calculatePriceForInstagram called');
-            console.log('selectedServer:', selectedServer);
-            console.log('quantityInput:', quantityInput);
-            console.log('estimatedPriceInput:', estimatedPriceInput);
-            
-            if (!selectedServer || !quantityInput || !estimatedPriceInput) {
-                console.log('Missing required elements');
-                return;
-            }
-            
-            const rate = parseFloat(selectedServer.getAttribute('data-rate')) || 0;
-            const quantity = parseInt(quantityInput.value) || 0;
-            
-            console.log('rate:', rate, 'quantity:', quantity);
-            
-            if (rate > 0 && quantity > 0) {
-                const totalPrice = quantity * rate;
-                const formattedPrice = `${totalPrice.toLocaleString('vi-VN')}₫`;
-                estimatedPriceInput.value = formattedPrice;
-                console.log('Updated price to:', formattedPrice);
-            } else {
-                estimatedPriceInput.value = '';
-            }
+        const API_BASE = window.API_BASE_URL || 'http://localhost:4000';
+        async function apiFetch(path, options = {}) {
+            const token = localStorage.getItem('auth.token');
+            const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || `Lỗi API: ${res.status}`);
+            return data;
         }
-        
-        // Initialize price calculation when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing Instagram price calculation...');
-            
-            // Add event listeners for this specific page
-            const quantityInput = document.getElementById('quantity');
-            if (quantityInput) {
-                quantityInput.addEventListener('input', calculatePriceForInstagram);
+
+        async function getServiceIdByName(name) {
+            const services = await apiFetch('/api/services');
+            const s = services.find(x => x.name.toLowerCase().includes(name.toLowerCase()));
+            if (!s) throw new Error('Không tìm thấy dịch vụ phù hợp');
+            return s.id;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const buyBtn = document.querySelector('.submit-btn');
+            if (buyBtn) {
+                buyBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const serviceId = await getServiceIdByName('Tăng Like Instagram');
+                        const quantity = parseInt(document.getElementById('quantity').value) || 0;
+                        const note = document.getElementById('notes')?.value || '';
+                        const order = await apiFetch('/api/orders', {
+                            method: 'POST',
+                            body: JSON.stringify({ serviceId, quantity, note })
+                        });
+                        alert('Tạo đơn thành công #' + order.id);
+                    } catch (err) {
+                        alert(err.message || 'Lỗi tạo đơn');
+                    }
+                });
             }
-            
-            const serverInputs = document.querySelectorAll('input[name="server"]');
-            serverInputs.forEach(input => {
-                input.addEventListener('change', calculatePriceForInstagram);
-            });
-            
-            // Calculate initial price
-            calculatePriceForInstagram();
+        });
+        // Khởi tạo tính giá dùng hàm chung
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof hydrateInstagramPage === 'function') {
+                hydrateInstagramPage();
+            }
         });
     </script>
 </body>

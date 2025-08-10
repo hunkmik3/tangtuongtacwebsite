@@ -1,5 +1,102 @@
 // Dark Mode Toggle
 document.addEventListener('DOMContentLoaded', function() {
+    // API client & auth guard
+    const DEFAULT_API_BASE = (location.protocol.startsWith('http'))
+        ? `${location.protocol}//${location.hostname}:4000`
+        : 'http://localhost:4000';
+    const STORED_API_BASE = localStorage.getItem('api.base');
+    const PRIMARY_API_BASE = (typeof window !== 'undefined' && window.API_BASE_URL) || STORED_API_BASE || DEFAULT_API_BASE;
+    const token = localStorage.getItem('auth.token');
+
+    function getApiBases() {
+        const bases = [];
+        if (typeof window !== 'undefined' && window.API_BASE_URL) bases.push(String(window.API_BASE_URL).replace(/\/$/, ''));
+        if (STORED_API_BASE) bases.push(String(STORED_API_BASE).replace(/\/$/, ''));
+        const isHttp = location.protocol.startsWith('http');
+        if (isHttp) bases.push(`${location.protocol}//${location.hostname}:4000`);
+        bases.push('http://localhost:4000');
+        bases.push('http://127.0.0.1:4000');
+        return [...new Set(bases)];
+    }
+
+    async function apiFetch(path, options = {}) {
+        const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        let lastErr = new Error('Không thể kết nối máy chủ');
+        for (const base of getApiBases()) {
+            try {
+                const res = await fetch(`${base}${path}`, { ...options, headers });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const err = new Error(data?.error || `Lỗi API: ${res.status}`);
+                    err.status = res.status;
+                    throw err;
+                }
+                try { localStorage.setItem('api.base', String(base)); } catch {}
+                return data;
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+        throw lastErr;
+    }
+    // Xuất ra global để các trang độc lập/inline script có thể dùng chung
+    try { window.apiFetch = window.apiFetch || apiFetch; } catch {}
+
+    // Redirect to login nếu đang chạy qua HTTP và chưa có token.
+    // Khi chạy file trực tiếp (file://) để dev, cho phép xem UI để không chặn JS init.
+    const isLoginPage = /login\.html$/i.test(window.location.pathname);
+    const isHttpProtocol = window.location.protocol.startsWith('http');
+    if (isHttpProtocol && !isLoginPage && !token) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Helper: bind user fields to UI in any page
+    function bindUserToUI(user) {
+        if (!user) return;
+        const userInfoSpan = document.querySelector('.user-info span');
+        if (userInfoSpan && user.username) userInfoSpan.textContent = user.username;
+        const emailEl = document.querySelector('.profile-details p');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+        // Generic bindings: [data-user-field="username"|"email"|"role"]
+        document.querySelectorAll('[data-user-field]')
+            .forEach(el => {
+                const field = el.getAttribute('data-user-field');
+                if (field && user[field] != null) el.textContent = String(user[field]);
+            });
+        // Bind balance on homepage stats if present
+        const balanceEl = document.querySelector('.stats-cards .stat-card:nth-child(1) p');
+        if (balanceEl && typeof user.balanceVnd === 'number') balanceEl.textContent = `₫${user.balanceVnd.toLocaleString('vi-VN')}`;
+    }
+
+    // Fetch current user và bind UI; fallback sang localStorage nếu không thể gọi HTTP
+    (async () => {
+        const isHttp = window.location.protocol.startsWith('http');
+        try {
+            if (token && isHttp) {
+                const me = await apiFetch('/api/users/me');
+                try { localStorage.setItem('auth.user', JSON.stringify(me)); } catch {}
+                bindUserToUI(me);
+                return;
+            }
+        } catch (e) {
+            if (e && (e.status === 401 || /Unauthorized|Invalid token/i.test(String(e.message)))) {
+                localStorage.removeItem('auth.token');
+                localStorage.removeItem('auth.user');
+                if (isHttp) window.location.href = 'login.html';
+            } else {
+                console.warn('Fetch /api/users/me failed:', e);
+            }
+        }
+
+        // Fallback: bind từ localStorage nếu có
+        try {
+            const cached = JSON.parse(localStorage.getItem('auth.user') || 'null');
+            if (cached) bindUserToUI(cached);
+        } catch {}
+    })();
+
     const darkModeToggle = document.getElementById('darkModeToggle');
     const body = document.body;
 
@@ -20,6 +117,67 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('darkMode', 'false');
         }
     });
+
+    // Inject mobile toggle buttons if not present
+    (function injectMobileToggles(){
+        const topBarLeft = document.querySelector('.top-bar-left');
+        const topBarRight = document.querySelector('.top-bar-right');
+        if (topBarLeft && !topBarLeft.querySelector('.menu-toggle.left')) {
+            const btn = document.createElement('button');
+            btn.className = 'menu-toggle left';
+            btn.setAttribute('aria-label', 'Mở menu');
+            btn.innerHTML = '<i class="fas fa-bars"></i>';
+            topBarLeft.prepend(btn);
+        }
+        if (topBarRight && !topBarRight.querySelector('.menu-toggle.right')) {
+            const btn = document.createElement('button');
+            btn.className = 'menu-toggle right';
+            btn.setAttribute('aria-label', 'Mở panel phải');
+            btn.innerHTML = '<i class="fas fa-sliders-h"></i>';
+            topBarRight.appendChild(btn);
+        }
+        if (!document.querySelector('.drawer-overlay')) {
+            const overlay = document.createElement('div');
+            overlay.className = 'drawer-overlay';
+            document.body.appendChild(overlay);
+        }
+    })();
+
+    // Mobile drawer behavior
+    (function setupDrawers(){
+        const sidebar = document.querySelector('.sidebar');
+        const rightSidebar = document.querySelector('.right-sidebar');
+        const overlay = document.querySelector('.drawer-overlay');
+        const btnLeft = document.querySelector('.menu-toggle.left');
+        const btnRight = document.querySelector('.menu-toggle.right');
+        function openSide(which){
+            if (which === 'left' && sidebar){ sidebar.classList.add('active'); }
+            if (which === 'right' && rightSidebar){ rightSidebar.classList.add('active'); }
+            if (overlay){ overlay.classList.add('active'); }
+            document.body.classList.add('no-scroll');
+        }
+        function closeAll(){
+            if (sidebar) sidebar.classList.remove('active');
+            if (rightSidebar) rightSidebar.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+            document.body.classList.remove('no-scroll');
+        }
+        if (btnLeft) btnLeft.addEventListener('click', ()=> openSide('left'));
+        if (btnRight) btnRight.addEventListener('click', ()=> openSide('right'));
+        if (overlay) overlay.addEventListener('click', closeAll);
+        // Close on ESC
+        document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeAll(); });
+        // Close when navigating sidebar links on small screens
+        document.querySelectorAll('.sidebar .nav-item, .sidebar a').forEach(a=>{
+            a.addEventListener('click', ()=>{
+                if (window.innerWidth <= 1024) closeAll();
+            });
+        });
+        // Auto-close when resizing back to desktop
+        window.addEventListener('resize', ()=>{
+            if (window.innerWidth > 1024) closeAll();
+        });
+    })();
 
     // Navigation active state
     const navItems = document.querySelectorAll('.nav-item');
@@ -43,9 +201,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadOverviewContent();
                     showNotification('Đã chuyển đến trang chủ', 'success');
                 } else if (navText === 'Thông tin tài khoản') {
-                    showNotification('Chức năng thông tin tài khoản đang được phát triển', 'info');
+                    window.location.href = 'account.html';
                 } else if (navText === 'Nạp Tiền') {
-                    showNotification('Chức năng nạp tiền đang được phát triển', 'info');
+                    window.location.href = 'topup.html';
                 } else if (navText === 'Liên Hệ Hỗ Trợ') {
                     showNotification('Chức năng liên hệ hỗ trợ đang được phát triển', 'info');
                 }
@@ -53,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Service items click handler
+    // Service items click handler + open Topup modal from sidebar "Nạp Tiền"
     const serviceItems = document.querySelectorAll('.service-item');
     serviceItems.forEach(item => {
         item.addEventListener('click', function() {
@@ -88,6 +246,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Sidebar "Nạp Tiền" button
+    const sidebarNavTopup = Array.from(document.querySelectorAll('.main-nav .nav-item')).find(a=>/Nạp Tiền/i.test(a.textContent||''));
+    if (sidebarNavTopup) { sidebarNavTopup.addEventListener('click', function(e){ e.preventDefault(); window.location.href = 'topup.html'; }); }
 
     // Support items click
     const supportItems = document.querySelectorAll('.support-item');
@@ -130,6 +292,8 @@ document.addEventListener('DOMContentLoaded', function() {
         showConfirmDialog('Bạn có chắc chắn muốn đăng xuất?', () => {
             showNotification('Đang đăng xuất...', 'info');
             setTimeout(() => {
+                localStorage.removeItem('auth.token');
+                localStorage.removeItem('auth.user');
                 window.location.href = 'login.html';
             }, 1500);
         });
@@ -151,18 +315,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Service select change
+    // Service select change (chỉ gắn khi phần tử tồn tại)
     const serviceSelect = document.querySelector('.service-select');
-    serviceSelect.addEventListener('change', function() {
-        const selectedService = this.value;
-        if (selectedService && selectedService !== 'Chọn dịch vụ') {
-            if (serviceTemplates[selectedService]) {
-                loadServiceContent(selectedService);
-            } else {
-                showNotification(`Dịch vụ ${selectedService} đang được phát triển`, 'info');
+    if (serviceSelect) {
+        serviceSelect.addEventListener('change', function() {
+            const selectedService = this.value;
+            if (selectedService && selectedService !== 'Chọn dịch vụ') {
+                if (serviceTemplates[selectedService]) {
+                    loadServiceContent(selectedService);
+                } else {
+                    showNotification(`Dịch vụ ${selectedService} đang được phát triển`, 'info');
+                }
             }
-        }
-    });
+        });
+    }
 
     // Auto update balance (simulation)
     setInterval(() => {
@@ -830,20 +996,259 @@ function initializeServiceCategories() {
     
     subitems.forEach(item => {
         item.addEventListener('click', function(e) {
-            e.preventDefault();
             e.stopPropagation();
-            
-            const serviceName = this.querySelector('span').textContent;
+
+            const spanEl = this.querySelector('span');
+            const linkEl = this.querySelector('a');
+            const serviceName = spanEl ? spanEl.textContent.trim() : (linkEl ? linkEl.textContent.trim() : '');
             console.log('Service item clicked:', serviceName);
-            
-            // Handle service content loading
+
+            // Giữ người dùng ở lại trang cho các dịch vụ Instagram/Threads/Facebook và nạp trang con tương ứng
+            const isInstagramItem = (serviceName && /Instagram|View Reels/i.test(serviceName)) || (linkEl && /instagram-/.test(linkEl.getAttribute('href') || ''));
+            const isThreadsItem = (serviceName && /Threads/i.test(serviceName)) || (linkEl && /threads-/.test(linkEl.getAttribute('href') || ''));
+            const isFacebookItem = (serviceName && /Facebook/i.test(serviceName));
+            if (isInstagramItem || isThreadsItem) {
+                const mapNameToUrl = {
+                    'Tăng Like Instagram': 'instagram-like.html',
+                    'Tăng Follow Instagram': 'instagram-follow.html',
+                    'Tăng Comment Instagram': 'instagram-comment.html',
+                    'Tăng View Reels': 'instagram-view-reels.html',
+                    'Like Threads': 'threads-like.html',
+                    'Follow Threads': 'threads-follow.html'
+                };
+                const targetUrl = (linkEl && linkEl.getAttribute('href')) || mapNameToUrl[serviceName] || 'instagram-like.html';
+
+                // Nếu đang chạy từ file:// (môi trường local) thì điều hướng trực tiếp để tránh lỗi fetch bị chặn bởi trình duyệt
+                const isLocalFile = location.protocol === 'file:';
+                if (isLocalFile) {
+                    if (e) e.preventDefault();
+                    window.location.href = targetUrl;
+                    return;
+                }
+
+                // Ngược lại, thử nạp động; nếu lỗi sẽ fallback sang điều hướng
+                if (e) e.preventDefault();
+                showNotification(`Đang tải dịch vụ: ${serviceName}...`, 'info');
+                loadExternalServicePage(targetUrl, serviceName).catch(() => {
+                    window.location.href = targetUrl;
+                });
+                return;
+            } else if (isFacebookItem) {
+                if (e) e.preventDefault();
+                // Nạp template trùng tên mục con Facebook
+                if (serviceTemplates[serviceName]) {
+                    loadServiceContent(serviceName);
+                } else {
+                    // Fallback: vẫn có thể dùng trang tổng Facebook nếu chưa có template cụ thể
+                    if (serviceTemplates['Facebook']) loadServiceContent('Facebook');
+                }
+                return;
+            }
+
+            // Nếu có thẻ <a> với href, ưu tiên điều hướng sang trang riêng
+            if (linkEl && linkEl.getAttribute('href')) {
+                showNotification(`Đang tải dịch vụ: ${serviceName}...`, 'info');
+                window.location.href = linkEl.getAttribute('href');
+                return;
+            }
+
+            // Fallback: tải template nếu có cấu hình động
             if (serviceTemplates[serviceName]) {
                 loadServiceContent(serviceName);
-            } else {
+            } else if (serviceName) {
                 showNotification(`Dịch vụ ${serviceName} đang được phát triển`, 'info');
             }
         });
     });
+
+    /**
+     * Nạp trang con (instagram-*.html) vào khu vực .main-content hiện tại và gắn lại sự kiện tính giá
+     */
+    async function loadExternalServicePage(url, displayName) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            const html = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const incomingMain = doc.querySelector('.main-content');
+            const mainContent = document.querySelector('.main-content');
+            if (incomingMain && mainContent) {
+                mainContent.innerHTML = incomingMain.innerHTML;
+                hydrateInstagramPage();
+                showNotification(`Đã tải dịch vụ: ${displayName}`, 'success');
+            } else if (mainContent) {
+                mainContent.innerHTML = html;
+                hydrateInstagramPage();
+                showNotification(`Đã tải dịch vụ: ${displayName}`, 'success');
+            }
+        } catch (err) {
+            console.error('Failed to load external service page', err);
+            showNotification('Không thể tải nội dung dịch vụ. Đang chuyển hướng sang trang riêng...', 'warning');
+            // Fallback: điều hướng trực tiếp nếu fetch thất bại (ví dụ chạy từ file://)
+            try {
+                window.location.href = url;
+            } catch (_) {
+                // bỏ qua
+            }
+        }
+    }
+
+    /**
+     * Gắn lại logic tính giá cho các trang Instagram được nạp động
+     */
+    function hydrateInstagramPage() {
+        const container = document.querySelector('.main-content');
+        if (!container) return;
+
+        const serverInputs = container.querySelectorAll('input[name="server"]');
+        const quantityInput = container.querySelector('#quantity');
+        const commentList = container.querySelector('#comment-list');
+        const pricePerInteractionInput = container.querySelector('#price-per-interaction');
+        const estimatedPriceInput = container.querySelector('#estimated-price');
+        const bulkToggle = container.querySelector('#bulk-toggle');
+        let bulkGroup = container.querySelector('#bulk-group');
+        let bulkList = container.querySelector('#bulk-list');
+
+        // Inject bulk section if toggle exists but group not rendered yet (áp dụng cho Like/Follow/View)
+        if (bulkToggle && !bulkGroup && !commentList) {
+            bulkGroup = document.createElement('div');
+            bulkGroup.id = 'bulk-group';
+            bulkGroup.className = 'form-group';
+            bulkGroup.style.display = 'none';
+            bulkGroup.innerHTML = `
+                <label for="bulk-list">Danh sách link (mỗi dòng 1 link)</label>
+                <textarea id="bulk-list" rows="4" placeholder="Mỗi dòng 1 link dịch vụ"></textarea>
+                <div class="input-hint">Tổng giá = số dòng × số lượng × đơn giá</div>
+            `;
+            const formSection = container.querySelector('.form-section');
+            const firstInputGroup = formSection ? formSection.querySelector('.form-group:nth-child(1)') : null;
+            if (firstInputGroup && firstInputGroup.parentElement) {
+                firstInputGroup.parentElement.insertBefore(bulkGroup, firstInputGroup.nextSibling);
+            } else if (formSection) {
+                formSection.appendChild(bulkGroup);
+            }
+            bulkList = bulkGroup.querySelector('#bulk-list');
+        }
+
+        const recalc = () => {
+            const selected = container.querySelector('input[name="server"]:checked');
+            const rate = selected ? parseFloat(selected.getAttribute('data-rate')) || 0 : 0;
+
+            if (pricePerInteractionInput) {
+                const isInteger = Math.abs(rate - Math.round(rate)) < 1e-9;
+                pricePerInteractionInput.value = isInteger ? rate.toFixed(0) : rate.toFixed(1).replace('.', ',');
+            }
+
+            let qty = 0;
+            if (commentList) {
+                qty = commentList.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean).length;
+                // Update label count if label exists
+                const label = container.querySelector('label[for="comment-list"]');
+                if (label) {
+                    label.textContent = `Danh Sách Bình Luận (${qty}):`;
+                }
+            } else if (quantityInput) {
+                // Bulk mode: tổng số lượng = (số dòng) × (số lượng mỗi đơn)
+                const bulkOn = !!(bulkToggle && bulkToggle.checked && bulkList);
+                if (bulkOn) {
+                    const orders = (bulkList.value || '')
+                        .split(/\r?\n/)
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                    const perOrderQty = parseInt(quantityInput.value) || 0;
+                    qty = orders.length * perOrderQty;
+                } else {
+                    qty = parseInt(quantityInput.value) || 0;
+                }
+            }
+
+            const total = rate > 0 && qty > 0 ? rate * qty : 0;
+            if (estimatedPriceInput) {
+                estimatedPriceInput.value = total > 0 ? `${total.toLocaleString('vi-VN')} VND` : '0 VND';
+            }
+        };
+
+        if (quantityInput) quantityInput.addEventListener('input', recalc);
+        if (commentList) commentList.addEventListener('input', recalc);
+        serverInputs.forEach(i => i.addEventListener('change', recalc));
+        if (bulkToggle) bulkToggle.addEventListener('change', () => {
+            if (bulkGroup) bulkGroup.style.display = bulkToggle.checked ? '' : 'none';
+            recalc();
+        });
+        if (bulkList) bulkList.addEventListener('input', recalc);
+
+        recalc();
+
+        // Gắn submit tạo đơn hàng (dùng chung cho tất cả dịch vụ được nạp động)
+        const submitBtn = container.querySelector('.submit-btn');
+        if (submitBtn && !submitBtn.dataset.boundSubmit) {
+            submitBtn.dataset.boundSubmit = '1';
+            submitBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    const headerText = (container.querySelector('.service-header h1')?.textContent || '').trim();
+                    // Suy ra tên dịch vụ lưu trong DB
+                    const headerToServiceName = (t) => {
+                        const s = t.toLowerCase();
+                        if (s.includes('tăng like instagram')) return 'Tăng Like Instagram';
+                        if (s.includes('tăng follow instagram')) return 'Tăng Follow Instagram';
+                        if (s.includes('tăng comment instagram')) return 'Tăng Comment Instagram';
+                        if (s.includes('view reels')) return 'Tăng View Reels Instagram';
+                        if (s.includes('tăng like facebook')) return 'Tăng Like Facebook';
+                        if (s.includes('tăng follow facebook')) return 'Tăng Follow Facebook';
+                        if (s.includes('tăng comment facebook')) return 'Tăng Comment Facebook';
+                        if (s.includes('tăng share facebook')) return 'Tăng Share Facebook';
+                        if (s.includes('like threads')) return 'Like Threads';
+                        if (s.includes('follow threads')) return 'Follow Threads';
+                        return t;
+                    };
+
+                    async function getServiceIdByName(name) {
+                        const services = await apiFetch('/api/services');
+                        const found = services.find(x => x.name.toLowerCase() === name.toLowerCase());
+                        if (found) return found.id;
+                        // Fallback: contains
+                        const alt = services.find(x => x.name.toLowerCase().includes(name.toLowerCase()));
+                        if (!alt) throw new Error('Không tìm thấy dịch vụ phù hợp');
+                        return alt.id;
+                    }
+
+                    const serviceName = headerToServiceName(headerText);
+                    const serviceId = await getServiceIdByName(serviceName);
+
+                    // Tính quantity
+                    let quantity = 0;
+                    if (commentList) {
+                        quantity = (commentList.value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).length;
+                        if (quantity <= 0) throw new Error('Vui lòng nhập danh sách bình luận');
+                    } else if (quantityInput) {
+                        const bulkOn = !!(bulkToggle && bulkToggle.checked && bulkList);
+                        if (bulkOn) {
+                            const orders = (bulkList.value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                            const perOrderQty = parseInt(quantityInput.value) || 0;
+                            quantity = orders.length * perOrderQty;
+                        } else {
+                            quantity = parseInt(quantityInput.value) || 0;
+                        }
+                        if (quantity <= 0) throw new Error('Vui lòng nhập số lượng');
+                    }
+
+                    const noteEl = container.querySelector('#notes, #note');
+                    const note = noteEl ? noteEl.value || '' : '';
+
+                    const order = await apiFetch('/api/orders', {
+                        method: 'POST',
+                        body: JSON.stringify({ serviceId, quantity, note })
+                    });
+                    showNotification(`Tạo đơn thành công #${String(order.id).padStart(5,'0')}`, 'success');
+                } catch (err) {
+                    showNotification(err.message || 'Lỗi tạo đơn', 'error');
+                }
+            });
+        }
+    }
+    // Xuất ra global để các trang gọi sau khi nạp HTML có thể truy cập
+    try { window.hydrateInstagramPage = hydrateInstagramPage; } catch {}
     
     // Initialize service categories if not already initialized
     if (document.querySelector('.service-category')) {
@@ -1006,13 +1411,20 @@ function calculatePrice() {
     
     console.log('rate:', rate, 'quantity:', quantity);
     
+    // Update optional price-per-interaction if present
+    const pricePerInteractionInput = activeService.querySelector('#price-per-interaction');
+    if (pricePerInteractionInput) {
+        const isInteger = Math.abs(rate - Math.round(rate)) < 1e-9;
+        pricePerInteractionInput.value = isInteger ? rate.toFixed(0) : rate.toFixed(1).replace('.', ',');
+    }
+
     if (rate > 0 && quantity > 0) {
         const totalPrice = quantity * rate;
-        const formattedPrice = `${totalPrice.toLocaleString('vi-VN')}₫`;
+        const formattedPrice = `${totalPrice.toLocaleString('vi-VN')} VND`;
         estimatedPriceInput.value = formattedPrice;
         console.log('Updated price to:', formattedPrice);
     } else {
-        estimatedPriceInput.value = '';
+        estimatedPriceInput.value = '0 VND';
     }
 }
 
@@ -1662,130 +2074,16 @@ const serviceTemplates = {
         </div>
     `,
     
-    'Voucher STK': `
-        <div class="content-wrapper">
-            <div class="form-section">
-                <h3>Thông Tin Dịch Vụ</h3>
-                <div class="form-group">
-                    <label for="voucher-type">Loại Voucher:</label>
-                    <select id="voucher-type">
-                        <option value="">Chọn loại voucher</option>
-                        <option value="shopee">Shopee</option>
-                        <option value="lazada">Lazada</option>
-                        <option value="tiki">Tiki</option>
-                        <option value="amazon">Amazon</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="voucher-value">Giá Trị Voucher:</label>
-                    <input type="number" id="voucher-value" placeholder="Nhập giá trị voucher">
-                </div>
-                
-                <div class="form-group">
-                    <label>Chọn Gói Dịch Vụ:</label>
-                    <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="service-package" value="basic" id="basic">
-                            <label for="basic">
-                                <div class="option-header">
-                                    <span class="option-name">Gói Cơ Bản</span>
-                                    <span class="option-price">100.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>Voucher 50.000đ</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="service-package" value="standard" id="standard">
-                            <label for="standard">
-                                <div class="option-header">
-                                    <span class="option-name">Gói Tiêu Chuẩn</span>
-                                    <span class="option-price">200.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>Voucher 100.000đ</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="service-package" value="premium" id="premium">
-                            <label for="premium">
-                                <div class="option-header">
-                                    <span class="option-name">Gói Cao Cấp</span>
-                                    <span class="option-price">500.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>Voucher 250.000đ</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="service-package" value="vip" id="vip">
-                            <label for="vip">
-                                <div class="option-header">
-                                    <span class="option-name">Gói VIP</span>
-                                    <span class="option-price">1.000.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>Voucher 500.000đ</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
-                    <input type="text" id="estimated-price" readonly>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
-                </div>
-            </div>
-            
-            <div class="notes-section">
-                <div class="notes-header">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Lưu Ý Quan Trọng</span>
-                </div>
-                <div class="service-info">
-                    <div class="info-section">
-                        <h4>Thông Tin Dịch Vụ</h4>
-                        <ul>
-                            <li>Voucher chính hãng 100%</li>
-                            <li>Thời gian giao: 5-15 phút</li>
-                            <li>Hỗ trợ 24/7</li>
-                            <li>Hoàn tiền nếu không hợp lệ</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="contact-info">
-                        <h4>Liên Hệ Hỗ Trợ</h4>
-                        <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
-                        <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
-                        <p><i class="fab fa-facebook"></i> Facebook: fb.com/support</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `,
-    
     // Templates for main services
     'Facebook': `
         <div class="content-wrapper">
             <div class="form-section">
                 <h3>Dịch Vụ Facebook</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
                 <div class="form-group">
                     <label for="facebook-link">Link Facebook:</label>
                     <input type="url" id="facebook-link" placeholder="Nhập link Facebook của bạn">
@@ -1795,51 +2093,75 @@ const serviceTemplates = {
                     <label>Chọn Dịch Vụ:</label>
                     <div class="server-options">
                         <div class="server-option">
-                            <input type="radio" name="facebook-service" value="like" id="fb-like">
+                            <input type="radio" name="server" value="like" id="fb-like" data-rate="26" checked>
                             <label for="fb-like">
                                 <div class="option-header">
                                     <span class="option-name">Tăng Like</span>
-                                    <span class="option-price">50.000đ</span>
+                                    <span class="option-price">50₫/tương tác</span>
                                 </div>
                                 <div class="option-details">
                                     <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 like trong 24h</p>
+                                    <p>Tối thiểu/Tối đa: 50/50k</p>
                                 </div>
                             </label>
                         </div>
                         
                         <div class="server-option">
-                            <input type="radio" name="facebook-service" value="follow" id="fb-follow">
+                            <input type="radio" name="server" value="follow" id="fb-follow" data-rate="20.2">
                             <label for="fb-follow">
                                 <div class="option-header">
                                     <span class="option-name">Tăng Follow</span>
-                                    <span class="option-price">100.000đ</span>
+                                    <span class="option-price">100₫/tương tác</span>
                                 </div>
                                 <div class="option-details">
                                     <span class="status-badge active">Hoạt động</span>
-                                    <p>500 follow trong 48h</p>
+                                    <p>Tối thiểu/Tối đa: 50/50k</p>
                                 </div>
                             </label>
                         </div>
                         
                         <div class="server-option">
-                            <input type="radio" name="facebook-service" value="share" id="fb-share">
+                            <input type="radio" name="server" value="share" id="fb-share" data-rate="276">
                             <label for="fb-share">
                                 <div class="option-header">
                                     <span class="option-name">Tăng Share</span>
-                                    <span class="option-price">75.000đ</span>
+                                    <span class="option-price">276₫/tương tác</span>
                                 </div>
                                 <div class="option-details">
                                     <span class="status-badge active">Hoạt động</span>
-                                    <p>200 share trong 24h</p>
+                                    <p>Tối thiểu/Tối đa: 50/50k</p>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="server-option">
+                            <input type="radio" name="server" value="comment" id="fb-comment" data-rate="500">
+                            <label for="fb-share">
+                                <div class="option-header">
+                                    <span class="option-name">Tăng Comment</span>
+                                    <span class="option-price">500₫/bình luận</span>
+                                </div>
+                                <div class="option-details">
+                                    <span class="status-badge active">Hoạt động</span>
+                                    <p>Tối thiểu/Tối đa: 50/50k</p>
                                 </div>
                             </label>
                         </div>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label for="quantity">Số lượng:</label>
+                    <input type="number" id="quantity" placeholder="Nhập số lượng (với Comment: số dòng bình luận)" value="100" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
                 
                 <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
+                    <label for="estimated-price">Tổng Giá:</label>
                     <input type="text" id="estimated-price" readonly>
                 </div>
                 
@@ -1872,6 +2194,61 @@ const serviceTemplates = {
                         <p><i class="fab fa-facebook"></i> Facebook: fb.com/support</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    `,
+    'Tăng Like Facebook': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <h3>Tăng Like Facebook</h3>
+                <div class="form-group"><label><input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc</label></div>
+                <div class="form-group"><label for="facebook-like-link">Link bài viết:</label><input type="url" id="facebook-like-link" placeholder="https://facebook.com/{post}" required></div>
+                <div class="form-group"><label>Chọn server:</label><div class="server-options"><div class="server-option"><input type="radio" name="server" id="fb-like-s1" checked data-rate="26"><label for="fb-like-s1"><span class="server-name">Server: Like việt <span class="server-price">26₫</span></span><div class="server-info"><span class="server-details">Tối thiểu/Tối đa: 50/50k</span></div></label></div></div></div>
+                <div class="form-group"><label for="quantity">Số lượng:</label><input type="number" id="quantity" value="100" min="1"></div>
+                <div class="form-group"><label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label><input type="text" id="price-per-interaction" readonly></div>
+                <div class="form-group"><label for="estimated-price">Tổng Giá:</label><input type="text" id="estimated-price" readonly></div>
+                <div class="action-buttons"><button class="btn-create-request">Mua</button><button class="btn-manage">Quản Lý ID</button></div>
+            </div>
+        </div>
+    `,
+    'Tăng Follow Facebook': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <h3>Tăng Follow Facebook</h3>
+                <div class="form-group"><label><input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc</label></div>
+                <div class="form-group"><label for="facebook-follow-link">Link profile:</label><input type="url" id="facebook-follow-link" placeholder="https://facebook.com/{username}" required></div>
+                <div class="form-group"><label>Chọn server:</label><div class="server-options"><div class="server-option"><input type="radio" name="server" id="fb-follow-s1" checked data-rate="20.2"><label for="fb-follow-s1"><span class="server-name">Server: Follow việt <span class="server-price">20.2₫</span></span><div class="server-info"><span class="server-details">Tối thiểu/Tối đa: 50/50k</span></div></label></div></div></div>
+                <div class="form-group"><label for="quantity">Số lượng:</label><input type="number" id="quantity" value="100" min="1"></div>
+                <div class="form-group"><label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label><input type="text" id="price-per-interaction" readonly></div>
+                <div class="form-group"><label for="estimated-price">Tổng Giá:</label><input type="text" id="estimated-price" readonly></div>
+                <div class="action-buttons"><button class="btn-create-request">Mua</button><button class="btn-manage">Quản Lý ID</button></div>
+            </div>
+        </div>
+    `,
+    'Tăng Comment Facebook': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <h3>Tăng Comment Facebook</h3>
+                <div class="form-group"><label for="facebook-comment-link">Link bài viết:</label><input type="url" id="facebook-comment-link" placeholder="https://facebook.com/{post}" required></div>
+                <div class="form-group"><label>Chọn server:</label><div class="server-options"><div class="server-option"><input type="radio" name="server" id="fb-comment-s1" checked data-rate="500"><label for="fb-comment-s1"><span class="server-name">Server: Comment <span class="server-price">500₫</span></span><div class="server-info"><span class="server-details">Tối thiểu/Tối đa: 10/10k</span></div></label></div></div></div>
+                <div class="form-group"><label for="comment-list">Danh Sách Bình Luận (0):</label><textarea id="comment-list" rows="5" placeholder="Mỗi dòng 1 bình luận."></textarea></div>
+                <div class="form-group"><label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label><input type="text" id="price-per-interaction" readonly></div>
+                <div class="form-group"><label for="estimated-price">Tổng Giá:</label><input type="text" id="estimated-price" readonly></div>
+                <div class="action-buttons"><button class="btn-create-request">Mua</button><button class="btn-manage">Quản Lý ID</button></div>
+            </div>
+        </div>
+    `,
+    'Tăng Share Facebook': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <h3>Tăng Share Facebook</h3>
+                <div class="form-group"><label><input type="checkbox" id="bulk-toggle" /> Mua nhiều đơn cùng lúc</label></div>
+                <div class="form-group"><label for="facebook-share-link">Link bài viết:</label><input type="url" id="facebook-share-link" placeholder="https://facebook.com/{post}" required></div>
+                <div class="form-group"><label>Chọn server:</label><div class="server-options"><div class="server-option"><input type="radio" name="server" id="fb-share-s1" checked data-rate="276"><label for="fb-share-s1"><span class="server-name">Server: Share <span class="server-price">276₫</span></span><div class="server-info"><span class="server-details">Tối thiểu/Tối đa: 50/50k</span></div></label></div></div></div>
+                <div class="form-group"><label for="quantity">Số lượng:</label><input type="number" id="quantity" value="100" min="1"></div>
+                <div class="form-group"><label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label><input type="text" id="price-per-interaction" readonly></div>
+                <div class="form-group"><label for="estimated-price">Tổng Giá:</label><input type="text" id="estimated-price" readonly></div>
+                <div class="action-buttons"><button class="btn-create-request">Mua</button><button class="btn-manage">Quản Lý ID</button></div>
             </div>
         </div>
     `,
@@ -2163,65 +2540,53 @@ const serviceTemplates = {
             <div class="form-section">
                 <h3>Dịch Vụ Threads</h3>
                 <div class="form-group">
-                    <label for="threads-link">Link Threads:</label>
-                    <input type="url" id="threads-link" placeholder="Nhập link Threads của bạn">
+                    <label for="threads-link">Link bài viết:</label>
+                    <input type="url" id="threads-link" placeholder="https://www.threads.net/@username/post/id" required>
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Chọn Dịch Vụ:</label>
+                    <label>Chọn dịch vụ:</label>
                     <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="threads-service" value="follow" id="th-follow">
-                            <label for="th-follow">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Follow</span>
-                                    <span class="option-price">150.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 follow trong 72h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="threads-service" value="like" id="th-like">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="th-like" checked data-rate="26.2">
                             <label for="th-like">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Like</span>
-                                    <span class="option-price">100.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>500 like trong 24h</p>
-                                </div>
+                                <span class="server-name">Like Thread</span>
+                                <span class="server-price">26.2₫</span>
                             </label>
                         </div>
-                        
                         <div class="server-option">
-                            <input type="radio" name="threads-service" value="repost" id="th-repost">
-                            <label for="th-repost">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Repost</span>
-                                    <span class="option-price">80.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>200 repost trong 48h</p>
-                                </div>
+                            <input type="radio" name="server" id="th-follow" data-rate="94.8">
+                            <label for="th-follow">
+                                <span class="server-name">Follow Thread</span>
+                                <span class="server-price">94.8₫</span>
                             </label>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
+                    <label for="quantity">Số lượng:</label>
+                    <input type="number" id="quantity" value="100" min="1" oninput="calculatePrice()">
+                </div>
+
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá:</label>
                     <input type="text" id="estimated-price" readonly>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="notes">Ghi chú:</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+
                 <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
                 </div>
             </div>
             
@@ -2246,288 +2611,6 @@ const serviceTemplates = {
                         <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
                         <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
                         <p><i class="fab fa-twitter"></i> Threads: @support</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `,
-    
-    'Shopee': `
-        <div class="content-wrapper">
-            <div class="form-section">
-                <h3>Dịch Vụ Shopee</h3>
-                <div class="form-group">
-                    <label for="shopee-link">Link Shopee:</label>
-                    <input type="url" id="shopee-link" placeholder="Nhập link Shopee của bạn">
-                </div>
-                
-                <div class="form-group">
-                    <label>Chọn Dịch Vụ:</label>
-                    <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="shopee-service" value="view" id="sp-view">
-                            <label for="sp-view">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng View</span>
-                                    <span class="option-price">50.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 view trong 24h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="shopee-service" value="like" id="sp-like">
-                            <label for="sp-like">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Like</span>
-                                    <span class="option-price">80.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>500 like trong 12h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="shopee-service" value="follow" id="sp-follow">
-                            <label for="sp-follow">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Follow</span>
-                                    <span class="option-price">120.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 follow trong 48h</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
-                    <input type="text" id="estimated-price" readonly>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
-                </div>
-            </div>
-            
-            <div class="notes-section">
-                <div class="notes-header">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Lưu Ý Quan Trọng</span>
-                </div>
-                <div class="service-info">
-                    <div class="info-section">
-                        <h4>Thông Tin Dịch Vụ</h4>
-                        <ul>
-                            <li>Tương tác thật 100%</li>
-                            <li>Không drop, bảo hành trọn đời</li>
-                            <li>Thời gian giao: 12-48h</li>
-                            <li>Hỗ trợ 24/7</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="contact-info">
-                        <h4>Liên Hệ Hỗ Trợ</h4>
-                        <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
-                        <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
-                        <p><i class="fas fa-shopping-cart"></i> Shopee: @support</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `,
-    
-    'Telegram': `
-        <div class="content-wrapper">
-            <div class="form-section">
-                <h3>Dịch Vụ Telegram</h3>
-                <div class="form-group">
-                    <label for="telegram-link">Link Telegram:</label>
-                    <input type="url" id="telegram-link" placeholder="Nhập link Telegram của bạn">
-                </div>
-                
-                <div class="form-group">
-                    <label>Chọn Dịch Vụ:</label>
-                    <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="telegram-service" value="member" id="tg-member">
-                            <label for="tg-member">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Thành Viên</span>
-                                    <span class="option-price">200.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 member trong 7 ngày</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="telegram-service" value="view" id="tg-view">
-                            <label for="tg-view">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng View</span>
-                                    <span class="option-price">100.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>5000 view trong 24h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="telegram-service" value="channel" id="tg-channel">
-                            <label for="tg-channel">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Kênh</span>
-                                    <span class="option-price">150.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>500 channel trong 48h</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
-                    <input type="text" id="estimated-price" readonly>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
-                </div>
-            </div>
-            
-            <div class="notes-section">
-                <div class="notes-header">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Lưu Ý Quan Trọng</span>
-                </div>
-                <div class="service-info">
-                    <div class="info-section">
-                        <h4>Thông Tin Dịch Vụ</h4>
-                        <ul>
-                            <li>Member thật 100%</li>
-                            <li>Không drop, bảo hành trọn đời</li>
-                            <li>Thời gian giao: 24h-7 ngày</li>
-                            <li>Hỗ trợ 24/7</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="contact-info">
-                        <h4>Liên Hệ Hỗ Trợ</h4>
-                        <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
-                        <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
-                        <p><i class="fab fa-telegram"></i> Telegram: @support</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `,
-    
-    'Twitter': `
-        <div class="content-wrapper">
-            <div class="form-section">
-                <h3>Dịch Vụ Twitter</h3>
-                <div class="form-group">
-                    <label for="twitter-link">Link Twitter:</label>
-                    <input type="url" id="twitter-link" placeholder="Nhập link Twitter của bạn">
-                </div>
-                
-                <div class="form-group">
-                    <label>Chọn Dịch Vụ:</label>
-                    <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="twitter-service" value="follow" id="tw-follow">
-                            <label for="tw-follow">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Follow</span>
-                                    <span class="option-price">180.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>2000 follow trong 72h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="twitter-service" value="like" id="tw-like">
-                            <label for="tw-like">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Like</span>
-                                    <span class="option-price">120.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 like trong 24h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="twitter-service" value="retweet" id="tw-retweet">
-                            <label for="tw-retweet">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Retweet</span>
-                                    <span class="option-price">90.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>500 retweet trong 48h</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
-                    <input type="text" id="estimated-price" readonly>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
-                </div>
-            </div>
-            
-            <div class="notes-section">
-                <div class="notes-header">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Lưu Ý Quan Trọng</span>
-                </div>
-                <div class="service-info">
-                    <div class="info-section">
-                        <h4>Thông Tin Dịch Vụ</h4>
-                        <ul>
-                            <li>Follow thật 100%</li>
-                            <li>Không drop, bảo hành trọn đời</li>
-                            <li>Thời gian giao: 24-72h</li>
-                            <li>Hỗ trợ 24/7</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="contact-info">
-                        <h4>Liên Hệ Hỗ Trợ</h4>
-                        <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
-                        <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
-                        <p><i class="fab fa-twitter"></i> Twitter: @support</p>
                     </div>
                 </div>
             </div>
@@ -2667,39 +2750,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server2" id="server2" data-rate="75.2" onchange="calculatePrice()">
-                            <label for="server2">
-                                <div class="option-header">
-                                    <span class="option-title">Server 15: Sub Via Việt nam, tốc độ 20k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">75.2₫/follow</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server3" id="server3" data-rate="95.8" onchange="calculatePrice()">
-                            <label for="server3">
-                                <div class="option-header">
-                                    <span class="option-title">Server 16: Sub Via Việt nam, tốc độ 30k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">95.8₫/follow</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server4" id="server4" data-rate="125.5" onchange="calculatePrice()">
-                            <label for="server4">
-                                <div class="option-header">
-                                    <span class="option-title">Server 17: Sub Via Việt nam, tốc độ 50k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">125.5₫/follow</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -2778,39 +2828,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server2" id="server2" data-rate="85.5" onchange="calculatePrice()">
-                            <label for="server2">
-                                <div class="option-header">
-                                    <span class="option-title">Server 15: Sub Via Việt nam, tốc độ 20k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">85.5₫/comment</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server3" id="server3" data-rate="105.8" onchange="calculatePrice()">
-                            <label for="server3">
-                                <div class="option-header">
-                                    <span class="option-title">Server 16: Sub Via Việt nam, tốc độ 30k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">105.8₫/comment</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server4" id="server4" data-rate="135.2" onchange="calculatePrice()">
-                            <label for="server4">
-                                <div class="option-header">
-                                    <span class="option-title">Server 17: Sub Via Việt nam, tốc độ 50k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">135.2₫/comment</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -2884,39 +2901,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server2" id="server2" data-rate="95.5" onchange="calculatePrice()">
-                            <label for="server2">
-                                <div class="option-header">
-                                    <span class="option-title">Server 15: Sub Via Việt nam, tốc độ 20k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">95.5₫/share</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server3" id="server3" data-rate="115.8" onchange="calculatePrice()">
-                            <label for="server3">
-                                <div class="option-header">
-                                    <span class="option-title">Server 16: Sub Via Việt nam, tốc độ 30k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">115.8₫/share</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="server" value="server4" id="server4" data-rate="145.2" onchange="calculatePrice()">
-                            <label for="server4">
-                                <div class="option-header">
-                                    <span class="option-title">Server 17: Sub Via Việt nam, tốc độ 50k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">145.2₫/share</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -2963,103 +2947,737 @@ const serviceTemplates = {
         </div>
     `,
     
-
-    
-
-    
-    'Lazada': `
+    'Like Youtube': `
         <div class="content-wrapper">
             <div class="form-section">
-                <h3>Dịch Vụ Lazada</h3>
                 <div class="form-group">
-                    <label for="lazada-link">Link Lazada:</label>
-                    <input type="url" id="lazada-link" placeholder="Nhập link Lazada của bạn">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Chọn Dịch Vụ:</label>
+                    <label for="youtube-like-link">Link Video Youtube</label>
+                    <input type="url" id="youtube-like-link" placeholder="https://www.youtube.com/watch?v=abc">
+                </div>
+
+                <div class="form-group">
+                    <label>Chọn server:</label>
                     <div class="server-options">
-                        <div class="server-option">
-                            <input type="radio" name="lazada-service" value="view" id="lz-view">
-                            <label for="lz-view">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng View</span>
-                                    <span class="option-price">60.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 view trong 24h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="lazada-service" value="like" id="lz-like">
-                            <label for="lazada-like">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Like</span>
-                                    <span class="option-price">100.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>500 like trong 12h</p>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="lazada-service" value="follow" id="lz-follow">
-                            <label for="lazada-follow">
-                                <div class="option-header">
-                                    <span class="option-name">Tăng Follow</span>
-                                    <span class="option-price">150.000đ</span>
-                                </div>
-                                <div class="option-details">
-                                    <span class="status-badge active">Hoạt động</span>
-                                    <p>1000 follow trong 48h</p>
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="yt-like-sv1" checked data-rate="19.4">
+                            <label for="yt-like-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Tốc độ trung bình. BH 15 ngày</span>
+                                <div class="server-info">
+                                    <span class="server-details">Tối thiểu/Tối đa: 50/20k</span>
                                 </div>
                             </label>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="estimated-price">Giá Dự Kiến:</label>
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="50" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
                     <input type="text" id="estimated-price" readonly>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+
                 <div class="action-buttons">
-                    <button class="btn-create-request">Tạo Yêu Cầu</button>
-                    <button class="btn-manage">Quản Lý</button>
-                </div>
-            </div>
-            
-            <div class="notes-section">
-                <div class="notes-header">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Lưu Ý Quan Trọng</span>
-                </div>
-                <div class="service-info">
-                    <div class="info-section">
-                        <h4>Thông Tin Dịch Vụ</h4>
-                        <ul>
-                            <li>Tương tác thật 100%</li>
-                            <li>Không drop, bảo hành trọn đời</li>
-                            <li>Thời gian giao: 12-48h</li>
-                            <li>Hỗ trợ 24/7</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="contact-info">
-                        <h4>Liên Hệ Hỗ Trợ</h4>
-                        <p><i class="fas fa-phone"></i> Hotline: 0123 456 789</p>
-                        <p><i class="fas fa-envelope"></i> Email: support@example.com</p>
-                        <p><i class="fas fa-shopping-cart"></i> Lazada: @support</p>
-                    </div>
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
                 </div>
             </div>
         </div>
     `,
+
+    'Share TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-share-link">Link bài viết</label>
+                    <input type="url" id="tiktok-share-link" placeholder="www.tiktok.com/@profile/video/12345">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-share-sv1" checked data-rate="16.6">
+                            <label for="tt-share-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Bảo hành 30 ngày</span>
+                                <div class="server-info"><span class="server-details">Tốc độ khá ổn. Tối thiểu/Tối đa: 100/10tr</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="100" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    // TikTok Livestream services
+    'Tim Livestream Tiktok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="ttlive-like-profile">Link profile</label>
+                    <input type="url" id="ttlive-like-profile" placeholder="https://www.tiktok.com/@profile/live">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="ttlive-like-sv1" checked data-rate="10.6">
+                            <label for="ttlive-like-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1</span>
+                                <div class="server-info"><span class="server-details">Tối thiểu/Tối đa: 500/50k</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="500" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Like</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Share Livestream TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="ttlive-share-profile">Link profile</label>
+                    <input type="url" id="ttlive-share-profile" placeholder="https://www.tiktok.com/@profile/live">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="ttlive-share-sv2" checked data-rate="24">
+                            <label for="ttlive-share-sv2">
+                                <span class="server-name" data-status="Hoạt động">Server 2: Share Việt, cấm dồn đơn</span>
+                                <div class="server-info"><span class="server-details">Thời gian chạy vài phút, đều và chậm. Tối thiểu/Tối đa: 200/100k</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="200" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Share</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Comment Livestream TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="ttlive-cmt-profile">Link profile</label>
+                    <input type="url" id="ttlive-cmt-profile" placeholder="https://www.tiktok.com/@profile/live">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="ttlive-cmt-sv1" checked data-rate="300">
+                            <label for="ttlive-cmt-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Icon biểu tượng ngẫu nhiên</span>
+                                <div class="server-info"><span class="server-details">Người bình luận là tên Nước Ngoài. Tốc độ tăng rất nhanh. Tối thiểu/Tối đa: 10/100k</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="10" min="1">
+                </div>
+                <div class="server-info" style="background:#5661ff22">
+                    <span class="server-details">Đây là comment Emoji ngẫu nhiên, không nhập nội dung comment.</span>
+                </div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Comment</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Mắt LiveStream TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="ttlive-viewer-profile">Link profile</label>
+                    <input type="url" id="ttlive-viewer-profile" placeholder="https://www.tiktok.com/@profile/live">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="ttlive-viewer-sv1" checked data-rate="9.8">
+                            <label for="ttlive-viewer-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Ổn định</span>
+                                <div class="server-info"><span class="server-details">Không mua cùng lúc 2 server trên 1 link live. Tối thiểu/Tối đa: 50/5k</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="duration-mins">Số phút</label>
+                    <select id="duration-mins">
+                        <option value="30">30 phút</option>
+                        <option value="60">60 phút</option>
+                        <option value="90">90 phút</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="50" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Điểm chiến đấu (PK) Tiktok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="ttlive-pk-profile">Link profile</label>
+                    <input type="url" id="ttlive-pk-profile" placeholder="https://www.tiktok.com/@profile/live">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="ttlive-pk-sv1" checked data-rate="16.6">
+                            <label for="ttlive-pk-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: DV không hoàn khi lỗi (mỗi live chỉ mua 1 đơn)</span>
+                                <div class="server-info"><span class="server-details">Dịch vụ lên có thể thiếu so với số lượng mua. Thường tăng kèm lượt like (nếu có). Tối thiểu/Tối đa: 500/10k</span></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="500" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Comment TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-cmt-link">Link bài viết</label>
+                    <input type="url" id="tiktok-cmt-link" placeholder="www.tiktok.com/@profile/video/12345">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-cmt-sv4" checked data-rate="720">
+                            <label for="tt-cmt-sv4">
+                                <span class="server-name" data-status="Hoạt động">Server 4: Nick việt, tốc độ chậm (cần tối thiểu 1 bình luận)</span>
+                                <div class="server-info">
+                                    <span class="server-details">Nội dung có thể bị tiktok ẩn và trùng lặp; Tối thiểu/Tối đa: 10/20</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nhập nội dung Comment - Mỗi dòng tương đương với 1 Comment (0)</label>
+                    <textarea id="comment-list" rows="8" placeholder="Mỗi bình luận 1 dòng, tối thiểu 5 bình luận"></textarea>
+                    <div class="server-info" style="margin-top:8px;background:#ff3b7f1a;border-left-color:#ff3b7f">
+                        <span class="server-details">Nghiêm cấm bình luận nội dung vi phạm pháp luật, xúc phạm danh phẩm. Nếu vi phạm bạn tự chịu trách nhiệm.</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'View TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-view-link">Link bài viết</label>
+                    <input type="url" id="tiktok-view-link" placeholder="www.tiktok.com/@profile/video/12345">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-view-sv3" checked data-rate="0.84">
+                            <label for="tt-view-sv3">
+                                <span class="server-name" data-status="Hoạt động">Server 3: Ổn định</span>
+                                <div class="server-info">
+                                    <span class="server-details">Thường lên ngay lập tức, nếu delay sẽ chạy trong 24 giờ. Tối thiểu/Tối đa: 1k/100k</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng (đơn vị: lượt xem)</label>
+                    <input type="number" id="quantity" value="1000" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi View</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Follow TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-follow-profile">Link profile</label>
+                    <input type="url" id="tiktok-follow-profile" placeholder="www.tiktok.com/@profile">
+                    <small>Tuyệt đối không đổi User trong quá trình chạy</small>
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-follow-sv2" checked data-rate="94.8">
+                            <label for="tt-follow-sv2">
+                                <span class="server-name" data-status="Hoạt động">Server 2: Sub việt, tốc độ 5k / 24h</span>
+                                <div class="server-info">
+                                    <span class="server-details">Gói tốc độ nhanh, không nên dồn đơn. Không bảo hành. Tối thiểu/Tối đa: 100/10k</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="100" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Like Comment TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-likecmt-post">Link bài viết</label>
+                    <input type="url" id="tiktok-likecmt-post" placeholder="www.tiktok.com/@profile/video/12345">
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-likecmt-profile">Link/Username profile người comment</label>
+                    <input type="text" id="tiktok-likecmt-profile" placeholder="www.tiktok.com/@profile">
+                    <small>Ví dụ: https://www.tiktok.com/@profile</small>
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-likecmt-sv2" checked data-rate="20.4">
+                            <label for="tt-likecmt-sv2">
+                                <span class="server-name" data-status="Hoạt động">Server 2: Tốc độ nhanh</span>
+                                <div class="server-info">
+                                    <span class="server-details">User có nhiều dấu chấm có thể không nhận diện được. Tối thiểu/Tối đa: 50/10k</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="50" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Like (Tim) TikTok': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="tiktok-like-link">Link bài viết</label>
+                    <input type="url" id="tiktok-like-link" placeholder="www.tiktok.com/@profile/video/12345">
+                </div>
+                <div class="form-group">
+                    <label>Chọn server</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="tt-like-sv1" checked data-rate="14.4">
+                            <label for="tt-like-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Like việt, 5k-10k/24h</span>
+                                <div class="server-info">
+                                    <span class="server-details">Có hỗ trợ hoàn tiền khi chậm. Phù hợp gói dưới 1k, tốc độ rất nhanh. Tối thiểu/Tối đa: 50/10k</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="50" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'View Youtube': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="youtube-view-link">Link Video Youtube</label>
+                    <input type="url" id="youtube-view-link" placeholder="https://www.youtube.com/watch?v=abc">
+                </div>
+
+                <div class="form-group">
+                    <label>Chọn server:</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="yt-view-sv1" checked data-rate="41.4">
+                            <label for="yt-view-sv1">
+                                <span class="server-name" data-status="Hoạt động">Server 1: Min 500. Speed 1k/day</span>
+                                <div class="server-info">
+                                    <span class="server-details">- Phần lớn là nguồn ngoại và không xác định.<br>- Bảo hành view 30 ngày.<br>- Tối thiểu/Tối đa: 500/từ</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" value="500" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    'Subcribe Youtube': `
+        <div class="content-wrapper">
+            <div class="form-section">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="multiple-orders"> Mua nhiều đơn cùng lúc
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="youtube-sub-link">Link Kênh Youtube</label>
+                    <input type="url" id="youtube-sub-link" placeholder="https://www.youtube.com/channel/abc">
+                </div>
+
+                <div class="form-group">
+                    <label>Chọn server:</label>
+                    <div class="server-options">
+                        <div class="server-option selected">
+                            <input type="radio" name="server" id="yt-sub-sv1" checked data-rate="372">
+                            <label for="yt-sub-sv1">
+                                <span class="server-name" data-status="Bảo trì">Server 4: Bảo hành 30 ngày, [500 / 1 ngày]</span>
+                                <div class="server-info">
+                                    <span class="server-details">Tham khảo: 372₫/sub</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Số lượng</label>
+                    <input type="number" id="quantity" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="price-per-interaction">Giá Tiền Mỗi Tương Tác:</label>
+                    <input type="text" id="price-per-interaction" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="estimated-price">Tổng Giá</label>
+                    <input type="text" id="estimated-price" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Ghi chú</label>
+                    <textarea id="notes" placeholder="Nhập ghi chú nếu cần"></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-create-request">Mua</button>
+                    <button class="btn-manage">Quản Lý ID</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    
     
     'Tăng Like Facebook': `
         <div class="content-wrapper">
@@ -3098,65 +3716,7 @@ const serviceTemplates = {
                             </label>
                         </div>
                         
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server1" id="server1">
-                            <label for="server1">
-                                <div class="option-header">
-                                    <span class="option-title">Server 1: Like việt. tốc độ chậm 14.2 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                         
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server3" id="server3">
-                            <label for="server3">
-                                <div class="option-header">
-                                    <span class="option-title">Server 3: Like việt. Tốc độ ổn 25 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server5" id="server5">
-                            <label for="server5">
-                                <div class="option-header">
-                                    <span class="option-title">Server 5: Like việt, tốc độ trung bình 16 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server15" id="server15">
-                            <label for="server15">
-                                <div class="option-header">
-                                    <span class="option-title">Server 15: Like việt 38.2 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server16" id="server16">
-                            <label for="server16">
-                                <div class="option-header">
-                                    <span class="option-title">Server 16: Like việt 62.2 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="like-server" value="server17" id="server17">
-                            <label for="server17">
-                                <div class="option-header">
-                                    <span class="option-title">Server 17: Like việt 112.6 ₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -3273,83 +3833,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server6" id="follow-server6">
-                            <label for="follow-server6">
-                                <div class="option-header">
-                                    <span class="option-title">Server 6: Sub tên ngẫu nhiên, tốc độ 20k /1 ngày, bảo hành 7 ngày.</span>
-                                    <span class="option-price">36 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server7" id="follow-server7">
-                            <label for="follow-server7">
-                                <div class="option-header">
-                                    <span class="option-title">Server 7: Sub Tây, tốc độ 10k / 1 ngày, bảo hành 7 ngày</span>
-                                    <span class="option-price">29.9 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server11" id="follow-server11">
-                            <label for="follow-server11">
-                                <div class="option-header">
-                                    <span class="option-title">Server 11: Sub Via Việt nam, tốc độ 5k / 1 ngày, bảo hành 7 ngày. (đang tụt cao)</span>
-                                    <span class="option-price">25.8 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server12" id="follow-server12">
-                            <label for="follow-server12">
-                                <div class="option-header">
-                                    <span class="option-title">Server 12: Sub Via Việt nam, tốc độ 5k-10k/1 ngày, bảo hành 7 ngày. (đang tụt cao)</span>
-                                    <span class="option-price">50.4 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server15" id="follow-server15">
-                            <label for="follow-server15">
-                                <div class="option-header">
-                                    <span class="option-title">Server 15: Sub Via Việt nam, tốc độ 20k / 1 ngày, bảo hành 7 ngày.</span>
-                                    <span class="option-price">65.8 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server16" id="follow-server16">
-                            <label for="follow-server16">
-                                <div class="option-header">
-                                    <span class="option-title">Server 16: Sub Via Việt nam, tốc độ 30k / 1 ngày, bảo hành 7 ngày.</span>
-                                    <span class="option-price">89.8 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="follow-server" value="server17" id="follow-server17">
-                            <label for="follow-server17">
-                                <div class="option-header">
-                                    <span class="option-title">Server 17: Sub Via Việt nam, tốc độ 50k / 1 ngày, bảo hành 7 ngày.</span>
-                                    <span class="option-price">113.8 đ</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -3424,50 +3907,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="comment-server" value="server5" id="comment-server5">
-                            <label for="comment-server5">
-                                <div class="option-header">
-                                    <span class="option-title">Server 5: Việt Nam. Tốc độ nhanh</span>
-                                    <span class="option-price">588₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="comment-server" value="server6" id="comment-server6">
-                            <label for="comment-server6">
-                                <div class="option-header">
-                                    <span class="option-title">Server 6: Việt Nam. Tốc độ ổn</span>
-                                    <span class="option-price">420₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="comment-server" value="server7" id="comment-server7">
-                            <label for="comment-server7">
-                                <div class="option-header">
-                                    <span class="option-title">Server 7: Việt Nam. Tốc độ nhanh</span>
-                                    <span class="option-price">588₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="comment-server" value="server8" id="comment-server8">
-                            <label for="comment-server8">
-                                <div class="option-header">
-                                    <span class="option-title">Server 8: Nick tích xanh Tên Việt Nam.</span>
-                                    <span class="option-price">8.400₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -3534,50 +3973,6 @@ const serviceTemplates = {
                                 </div>
                             </label>
                         </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="share-server" value="server6" id="share-server6">
-                            <label for="share-server6">
-                                <div class="option-header">
-                                    <span class="option-title">Server 6: Share việt, tốc độ siêu tốc</span>
-                                    <span class="option-price">348₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="share-server" value="server7" id="share-server7">
-                            <label for="share-server7">
-                                <div class="option-header">
-                                    <span class="option-title">Server 7: Kèm nội dung khi share</span>
-                                    <span class="option-price">360₫</span>
-                                    <span class="status-badge slow">Chậm</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="share-server" value="server8" id="share-server8">
-                            <label for="share-server8">
-                                <div class="option-header">
-                                    <span class="option-title">Server 8: Share ảo [chỉ lên post, không chạy video]</span>
-                                    <span class="option-price">18₫</span>
-                                    <span class="status-badge stopped">Ngừng nhận đơn</span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="server-option">
-                            <input type="radio" name="share-server" value="server5" id="share-server5">
-                            <label for="share-server5">
-                                <div class="option-header">
-                                    <span class="option-title">Server 5: Share ảo [ Lên Siêu Tốc - Chạy video, livestream]</span>
-                                    <span class="option-price">24₫</span>
-                                    <span class="status-badge active">Hoạt động</span>
-                                </div>
-                            </label>
-                        </div>
                     </div>
                 </div>
                 
@@ -3617,6 +4012,10 @@ function loadServiceContent(serviceName) {
         mainContent.innerHTML = serviceTemplates[serviceName];
         initializeServicePages();
         initializePriceCalculation();
+        // Gắn lại logic tính giá theo format chuẩn (server + quantity hoặc comment-list)
+        if (typeof hydrateInstagramPage === 'function') {
+            hydrateInstagramPage();
+        }
         showNotification(`Đã tải dịch vụ: ${serviceName}`, 'success');
     }
 }

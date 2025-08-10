@@ -1,4 +1,162 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // API client & admin guard
+    const DEFAULT_API_BASE = `${location.protocol}//${location.hostname}:4000`;
+    function getApiBases() {
+        const bases = [];
+        if (window.API_BASE_URL) bases.push(window.API_BASE_URL);
+        bases.push(`${location.protocol}//${location.hostname}:4000`);
+        bases.push(`${location.protocol}//localhost:4000`);
+        bases.push(`${location.protocol}//127.0.0.1:4000`);
+        return [...new Set(bases)];
+    }
+    const token = localStorage.getItem('auth.token');
+    if (!token) { window.location.href = 'login.html'; return; }
+    async function apiFetchAny(path, options = {}) {
+        let lastErr = new Error('Không thể kết nối máy chủ');
+        for (const base of getApiBases()) {
+            try {
+                const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+                headers['Authorization'] = `Bearer ${token}`;
+                const res = await fetch(`${base}${path}`, { ...options, headers });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+                return data;
+            } catch (e) { lastErr = e; }
+        }
+        throw lastErr;
+    }
+    (async () => {
+        try {
+            const me = await apiFetchAny('/api/users/me');
+            if (me?.role !== 'ADMIN') { alert('Chỉ quản trị viên mới được truy cập'); window.location.href = 'index.html'; return; }
+            await loadUsers();
+            bindUserTableActions();
+        } catch (e) {
+            console.error(e);
+        }
+    })();
+
+    async function loadUsers() {
+        const tbody = document.querySelector('.users-table tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+        try {
+            const users = await apiFetchAny('/api/admin/users');
+            const rows = users.map((u) => {
+                const createdAt = u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '';
+                const initials = (u.username || 'U').substring(0,2).toUpperCase();
+                return `
+                <tr data-id="${u.id}">
+                  <td><input type="checkbox"></td>
+                  <td>
+                    <div class="user-info">
+                      <img src="https://via.placeholder.com/40x40/667eea/ffffff?text=${initials}" alt="Avatar">
+                      <div>
+                        <strong>${u.username}</strong>
+                        <span>ID: ${u.id}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>${u.email || ''}</td>
+                  <td><span class="badge ${u.role === 'ADMIN' ? 'vip' : 'user'}">${u.role}</span></td>
+                  <td><span class="status active">Hoạt động</span></td>
+                  <td>${createdAt}</td>
+                  <td>-</td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn btn-sm btn-primary" data-action="edit" data-id="${u.id}" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
+                      <button class="btn btn-sm btn-danger" data-action="delete" data-id="${u.id}" title="Xóa"><i class="fas fa-trash"></i></button>
+                    </div>
+                  </td>
+                </tr>`;
+            }).join('\n');
+            tbody.innerHTML = rows || '<tr><td colspan="8">Chưa có người dùng</td></tr>';
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="8">Lỗi tải danh sách người dùng</td></tr>';
+        }
+    }
+
+    function bindUserTableActions() {
+        const tbody = document.querySelector('.users-table tbody');
+        if (!tbody) return;
+        tbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const id = Number(btn.getAttribute('data-id'));
+            const action = btn.getAttribute('data-action');
+            if (action === 'edit') {
+                openEditUserModal(id);
+            } else if (action === 'delete') {
+                if (confirm('Bạn có chắc muốn xóa người dùng này? Hành động không thể hoàn tác.')) {
+                    try {
+                        await apiFetchAny(`/api/admin/users/${id}`, { method: 'DELETE' });
+                        const row = tbody.querySelector(`tr[data-id="${id}"]`);
+                        if (row) row.remove();
+                        showNotification('Đã xóa người dùng', 'success');
+                    } catch (err) {
+                        showNotification(err.message || 'Xóa người dùng thất bại', 'error');
+                    }
+                }
+            }
+        });
+    }
+
+    function openEditUserModal(userId) {
+        const row = document.querySelector(`tr[data-id="${userId}"]`);
+        const currentUsername = row?.querySelector('strong')?.textContent || '';
+        const currentEmail = row?.children[2]?.textContent || '';
+        const currentRole = row?.querySelector('.badge')?.textContent || 'USER';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal-card">
+            <h3>Chỉnh sửa người dùng</h3>
+            <div class="modal-row">
+              <label>Tên đăng nhập</label>
+              <input id="edit-username" type="text" value="${currentUsername}">
+            </div>
+            <div class="modal-row">
+              <label>Email</label>
+              <input id="edit-email" type="email" value="${currentEmail}">
+            </div>
+            <div class="modal-row">
+              <label>Vai trò</label>
+              <select id="edit-role">
+                <option value="USER" ${currentRole==='USER'?'selected':''}>USER</option>
+                <option value="ADMIN" ${currentRole==='ADMIN'?'selected':''}>ADMIN</option>
+              </select>
+            </div>
+            <div class="modal-actions">
+              <button class="btn btn-secondary" id="edit-cancel">Hủy</button>
+              <button class="btn btn-primary" id="edit-save">Lưu</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.remove(); });
+        overlay.querySelector('#edit-cancel').addEventListener('click', ()=> overlay.remove());
+        overlay.querySelector('#edit-save').addEventListener('click', async ()=>{
+            const payload = {
+                username: overlay.querySelector('#edit-username').value.trim(),
+                email: overlay.querySelector('#edit-email').value.trim(),
+                role: overlay.querySelector('#edit-role').value
+            };
+            try {
+                const updated = await apiFetchAny(`/api/admin/users/${userId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+                if (row) {
+                    row.querySelector('strong').textContent = updated.username;
+                    row.children[2].textContent = updated.email || '';
+                    const badge = row.querySelector('.badge');
+                    badge.textContent = updated.role;
+                    badge.className = `badge ${updated.role === 'ADMIN' ? 'vip' : 'user'}`;
+                }
+                overlay.remove();
+                showNotification('Cập nhật người dùng thành công', 'success');
+            } catch (err) {
+                showNotification(err.message || 'Cập nhật thất bại', 'error');
+            }
+        });
+    }
     // Dark Mode Toggle
     const darkModeToggle = document.getElementById('darkModeToggle');
     const body = document.body;
@@ -116,12 +274,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Action Buttons
-    const actionButtons = document.querySelectorAll('.action-buttons .btn');
-    actionButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const action = this.title || this.textContent.trim();
-            const row = this.closest('tr');
+    // Action Buttons (delegate)
+    document.body.addEventListener('click', async function(e) {
+        const targetBtn = e.target.closest('.action-buttons .btn');
+        if (!targetBtn) return;
+        const action = targetBtn.getAttribute('data-action') || targetBtn.title || targetBtn.textContent.trim();
+        const row = targetBtn.closest('tr');
             
             if (action.includes('Xem chi tiết')) {
                 showNotification('Đang mở chi tiết...', 'info');
@@ -146,35 +304,213 @@ document.addEventListener('DOMContentLoaded', function() {
                     statusCell.className = 'status active';
                     showNotification('Người dùng đã được mở khóa!', 'success');
                 }
-            } else if (action.includes('Hoàn thành')) {
-                if (confirm('Bạn có chắc chắn muốn hoàn thành đơn hàng này?')) {
-                    const statusCell = row.querySelector('.status');
-                    statusCell.textContent = 'Hoàn thành';
-                    statusCell.className = 'status completed';
-                    showNotification('Đơn hàng đã được hoàn thành!', 'success');
+            } else if (action === 'order-complete') {
+                if (confirm('Xác nhận hoàn thành đơn hàng?')) {
+                    try {
+                        const id = Number(targetBtn.getAttribute('data-id'));
+                        await apiFetchAny(`/api/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'COMPLETED' }) });
+                        const statusCell = row.querySelector('.status');
+                        statusCell.textContent = 'Hoàn thành';
+                        statusCell.className = 'status completed';
+                        showNotification('Đơn hàng đã được hoàn thành!', 'success');
+                    } catch(err){ showNotification(err.message || 'Lỗi cập nhật', 'error'); }
                 }
-            } else if (action.includes('Hủy bỏ')) {
-                if (confirm('Bạn có chắc chắn muốn hủy bỏ đơn hàng này?')) {
-                    row.style.opacity = '0.5';
-                    showNotification('Đơn hàng đã được hủy bỏ!', 'warning');
+            } else if (action === 'order-processing') {
+                try {
+                    const id = Number(targetBtn.getAttribute('data-id'));
+                    await apiFetchAny(`/api/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'PROCESSING' }) });
+                    const statusCell = row.querySelector('.status');
+                    statusCell.textContent = 'Đang xử lý';
+                    statusCell.className = 'status processing';
+                    showNotification('Đã chuyển sang Đang xử lý', 'info');
+                } catch(err){ showNotification(err.message || 'Lỗi cập nhật', 'error'); }
+            } else if (action === 'order-cancel') {
+                if (confirm('Xác nhận hủy đơn hàng?')) {
+                    try {
+                        const id = Number(targetBtn.getAttribute('data-id'));
+                        await apiFetchAny(`/api/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELED' }) });
+                        const statusCell = row.querySelector('.status');
+                        statusCell.textContent = 'Hủy bỏ';
+                        statusCell.className = 'status canceled';
+                        showNotification('Đơn hàng đã được hủy!', 'warning');
+                    } catch(err){ showNotification(err.message || 'Lỗi cập nhật', 'error'); }
                 }
             } else if (action.includes('Tạo lại')) {
                 showNotification('Đang tạo lại đơn hàng...', 'info');
-            } else if (action.includes('Xác nhận')) {
-                if (confirm('Bạn có chắc chắn muốn xác nhận giao dịch này?')) {
-                    const statusCell = row.querySelector('.status');
-                    statusCell.textContent = 'Thành công';
-                    statusCell.className = 'status success';
-                    showNotification('Giao dịch đã được xác nhận!', 'success');
+            } else if (action === 'topup-confirm') {
+                const id = Number(targetBtn.getAttribute('data-id'));
+                if (confirm('Xác nhận cộng tiền cho giao dịch này?')) {
+                    try {
+                        await apiFetchAny(`/api/admin/topups/${id}/confirm`, { method: 'PATCH', body: JSON.stringify({}) });
+                        showNotification('Đã xác nhận giao dịch!', 'success');
+                        loadTransactions();
+                    } catch (err) { showNotification(err.message || 'Lỗi xác nhận', 'error'); }
                 }
-            } else if (action.includes('Từ chối')) {
-                if (confirm('Bạn có chắc chắn muốn từ chối giao dịch này?')) {
-                    row.style.opacity = '0.5';
-                    showNotification('Giao dịch đã được từ chối!', 'error');
+            } else if (action === 'topup-cancel') {
+                const id = Number(targetBtn.getAttribute('data-id'));
+                const reason = prompt('Lý do hủy (tùy chọn):', '');
+                if (confirm('Xác nhận hủy giao dịch này?')) {
+                    try {
+                        await apiFetchAny(`/api/admin/topups/${id}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) });
+                        showNotification('Đã hủy giao dịch!', 'warning');
+                        loadTransactions();
+                    } catch (err) { showNotification(err.message || 'Lỗi hủy', 'error'); }
                 }
             }
-        });
     });
+
+    // Load Orders (admin view)
+    async function loadOrders() {
+        const table = document.querySelector('#orders table.orders-table tbody');
+        if (!table) return;
+        table.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+        try {
+            const orders = await apiFetchAny('/api/orders');
+            const rows = orders.map(o => {
+                const statusMap = { PENDING: 'Chờ xử lý', PROCESSING: 'Đang xử lý', COMPLETED: 'Hoàn thành', CANCELED: 'Hủy bỏ' };
+                const created = o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : '';
+                return `
+                <tr data-id="${o.id}">
+                    <td><strong>#${String(o.id).padStart(5,'0')}</strong></td>
+                    <td>${o.user?.username || '-'}</td>
+                    <td>${o.service?.name || '-'}</td>
+                    <td>${o.quantity}</td>
+                    <td>₫${(o.amountVnd||0).toLocaleString('vi-VN')}</td>
+                    <td><span class="status ${String(o.status).toLowerCase()}">${statusMap[o.status]||o.status}</span></td>
+                    <td>${created}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-success" data-action="order-complete" data-id="${o.id}" title="Hoàn thành"><i class="fas fa-check"></i></button>
+                            <button class="btn btn-sm btn-warning" data-action="order-processing" data-id="${o.id}" title="Đang xử lý"><i class="fas fa-play"></i></button>
+                            <button class="btn btn-sm btn-danger" data-action="order-cancel" data-id="${o.id}" title="Hủy"><i class="fas fa-times"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('\n');
+            table.innerHTML = rows || '<tr><td colspan="8">Chưa có đơn hàng</td></tr>';
+        } catch (e) {
+            table.innerHTML = '<tr><td colspan="8">Lỗi tải danh sách đơn hàng</td></tr>';
+        }
+    }
+
+    // Load Services list into Services tab
+    async function loadServices() {
+        const container = document.querySelector('#services .services-grid');
+        if (!container) return;
+        try {
+            const services = await apiFetchAny('/api/services');
+            if (!Array.isArray(services)) return;
+            container.innerHTML = services.map(s => `
+                <div class="service-card">
+                    <div class="service-header">
+                        <h3>${s.name}</h3>
+                        <div class="service-status ${s.active ? 'active' : 'inactive'}">${s.active ? 'Hoạt động' : 'Tạm ngưng'}</div>
+                    </div>
+                    <div class="service-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Giá/Đơn vị</span>
+                            <span class="stat-value">₫${(s.rateVnd||0).toLocaleString('vi-VN')}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Đơn hàng</span>
+                            <span class="stat-value">${s._count?.orders || 0}</span>
+                        </div>
+                    </div>
+                </div>`).join('\n');
+        } catch (e) {
+            // giữ nguyên giao diện tĩnh nếu lỗi
+        }
+    }
+
+    // Load Transactions (Topups) từ API và hỗ trợ xác nhận/hủy thủ công
+    async function loadTransactions() {
+        const table = document.querySelector('#transactions table.transactions-table tbody');
+        if (!table) return;
+        table.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+        try {
+            const topups = await apiFetchAny('/api/topups');
+            const rows = (topups || []).map(t => {
+                const created = t.createdAt ? new Date(t.createdAt).toLocaleString('vi-VN') : '';
+                const statusMap = { PENDING: 'Đang chờ', COMPLETED: 'Thành công', FAILED: 'Thất bại', CANCELED: 'Hủy' };
+                const statusCls = String(t.status || '').toLowerCase();
+                const amount = `₫${(t.amountVnd || 0).toLocaleString('vi-VN')}`;
+                const username = t.user?.username || '-';
+                const provider = t.provider || '-';
+                const actions = t.status === 'PENDING'
+                  ? `<div class="action-buttons">
+                        <button class="btn btn-sm btn-success" data-action="topup-confirm" data-id="${t.id}" title="Xác nhận"><i class="fas fa-check"></i></button>
+                        <button class="btn btn-sm btn-danger" data-action="topup-cancel" data-id="${t.id}" title="Hủy"><i class="fas fa-times"></i></button>
+                     </div>`
+                  : `<div class="action-buttons"><button class="btn btn-sm btn-secondary" data-action="topup-view" data-id="${t.id}" title="Xem"><i class="fas fa-eye"></i></button></div>`;
+                return `
+                <tr data-id="${t.id}">
+                    <td><strong>#${String(t.id).padStart(5,'0')}</strong></td>
+                    <td>${username}</td>
+                    <td><code>${t.contentCode || ''}</code></td>
+                    <td>${amount}</td>
+                    <td>${provider}</td>
+                    <td><span class="status ${statusCls}">${statusMap[t.status] || t.status}</span></td>
+                    <td>${created}</td>
+                    <td>${actions}</td>
+                </tr>`;
+            }).join('\n');
+            table.innerHTML = rows || '<tr><td colspan="8">Chưa có giao dịch</td></tr>';
+        } catch (e) {
+            table.innerHTML = '<tr><td colspan="8">Lỗi tải giao dịch</td></tr>';
+        }
+    }
+
+    // Load Reports overview numbers
+    async function loadReports() {
+        const usersEl = document.querySelector('#dashboard .stats-grid .stat-card:nth-child(1) h3');
+        const ordersTodayEl = document.querySelector('#dashboard .stats-grid .stat-card:nth-child(2) h3');
+        const revenueEl = document.querySelector('#dashboard .stats-grid .stat-card:nth-child(3) h3');
+        const activeUsersEl = document.querySelector('#dashboard .stats-grid .stat-card:nth-child(4) h3');
+        try {
+            const o = await apiFetchAny('/api/stats/overview');
+            if (usersEl) usersEl.textContent = (o.users||0).toLocaleString('vi-VN');
+            if (ordersTodayEl) ordersTodayEl.textContent = (o.todayOrders||0).toLocaleString('vi-VN');
+            if (revenueEl) revenueEl.textContent = `₫${(o.revenueVnd||0).toLocaleString('vi-VN')}`;
+            if (activeUsersEl) activeUsersEl.textContent = (o.activeUsers||0).toLocaleString('vi-VN');
+        } catch (e) {
+            // giữ nguyên nếu lỗi
+        }
+    }
+
+    // Gọi load theo tab khi mở
+    loadOrders();
+    loadServices();
+    loadTransactions();
+    loadReports();
+    loadRecentActivities();
+
+    async function loadRecentActivities() {
+        const list = document.querySelector('#dashboard .recent-activity .activity-list');
+        if (!list) return;
+        try {
+            const acts = await apiFetchAny('/api/admin/activity/recent?limit=5');
+            list.innerHTML = acts.map(a => {
+                const mapIcon = {
+                    REGISTER: 'user-plus',
+                    LOGIN: 'check-circle',
+                    CREATE_ORDER: 'shopping-cart'
+                };
+                const icon = mapIcon[a.action] || 'info-circle';
+                const time = new Date(a.createdAt).toLocaleTimeString('vi-VN');
+                const content = a.action === 'CREATE_ORDER' && a.metadata?.orderId ? `Tạo đơn hàng #${String(a.metadata.orderId).padStart(5,'0')}` : a.action;
+                return `
+                    <div class="activity-item">
+                        <i class="fas fa-${icon}"></i>
+                        <div>
+                            <span class="activity-date">${time}</span>
+                            <p>${a.user?.username || 'Hệ thống'} - ${content}</p>
+                        </div>
+                    </div>`;
+            }).join('\n');
+        } catch (e) {
+            // không hiển thị nếu lỗi
+        }
+    }
 
     // Service Management
     const serviceButtons = document.querySelectorAll('.service-actions .btn');
@@ -426,21 +762,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Auto-refresh stats (simulate real-time updates)
-    setInterval(() => {
-        const statValues = document.querySelectorAll('.stat-content h3');
-        statValues.forEach(stat => {
-            const currentValue = parseInt(stat.textContent.replace(/[^\d]/g, ''));
-            const randomChange = Math.floor(Math.random() * 10) - 5;
-            const newValue = Math.max(0, currentValue + randomChange);
-            
-            if (stat.textContent.includes('₫')) {
-                stat.textContent = `₫${newValue.toLocaleString()}`;
-            } else {
-                stat.textContent = newValue.toLocaleString();
-            }
-        });
-    }, 30000); // Update every 30 seconds
+    // Auto-refresh số liệu từ API (không sử dụng số ảo)
+    setInterval(() => { loadReports(); }, 60000); // mỗi 60s cập nhật tổng quan
+
+    // Realtime đơn hàng mới qua SSE
+    (function initOrderStream(){
+        try {
+            const srcToken = localStorage.getItem('auth.token');
+            if (!srcToken) return;
+            const base = getApiBases()[0];
+            const es = new EventSource(`${base}/api/admin/orders/stream?token=${encodeURIComponent(srcToken)}`);
+            es.addEventListener('order.created', (ev) => {
+                try {
+                    const data = JSON.parse(ev.data);
+                    showNotification(`Đơn hàng mới #${String(data.id).padStart(5,'0')} • ${data.user?.username||'-'} • ${data.service?.name||'-'}`, 'info');
+                    // prepend vào bảng đơn hàng nếu đang mở
+                    const tbody = document.querySelector('#orders table.orders-table tbody');
+                    if (tbody) {
+                        const created = data.createdAt ? new Date(data.createdAt).toLocaleString('vi-VN') : '';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>#${String(data.id).padStart(5,'0')}</strong></td>
+                            <td>${data.user?.username || '-'}</td>
+                            <td>${data.service?.name || '-'}</td>
+                            <td>${data.quantity}</td>
+                            <td>₫${(data.amountVnd||0).toLocaleString('vi-VN')}</td>
+                            <td><span class="status pending">Chờ xử lý</span></td>
+                            <td>${created}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn btn-sm btn-success" title="Hoàn thành"><i class="fas fa-check"></i></button>
+                                    <button class="btn btn-sm btn-danger" title="Hủy bỏ"><i class="fas fa-times"></i></button>
+                                </div>
+                            </td>`;
+                        tbody.prepend(row);
+                    }
+                } catch {}
+            });
+        } catch {}
+    })();
 
     // Table row hover effects
     const tableRows = document.querySelectorAll('tbody tr');
@@ -497,56 +857,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Simulate real-time activity updates
-    const activityList = document.querySelector('.activity-list');
-    if (activityList) {
-        const activities = [
-            {
-                icon: 'new-user',
-                title: 'Người dùng mới đăng ký',
-                description: 'user456 đã đăng ký tài khoản mới',
-                time: '1 phút trước'
-            },
-            {
-                icon: 'new-order',
-                title: 'Đơn hàng mới',
-                description: 'Đơn hàng #ORD-2024-002 - 500 Follow Instagram',
-                time: '3 phút trước'
-            },
-            {
-                icon: 'payment',
-                title: 'Thanh toán thành công',
-                description: 'Người dùng user789 đã nạp 300,000 VNĐ',
-                time: '5 phút trước'
-            }
-        ];
-
-        setInterval(() => {
-            const randomActivity = activities[Math.floor(Math.random() * activities.length)];
-            const newActivity = document.createElement('div');
-            newActivity.className = 'activity-item';
-            newActivity.innerHTML = `
-                <div class="activity-icon ${randomActivity.icon}">
-                    <i class="fas fa-${randomActivity.icon === 'new-user' ? 'user-plus' : 
-                                      randomActivity.icon === 'new-order' ? 'shopping-cart' : 
-                                      'credit-card'}"></i>
-                </div>
-                <div class="activity-content">
-                    <h4>${randomActivity.title}</h4>
-                    <p>${randomActivity.description}</p>
-                    <span class="activity-time">${randomActivity.time}</span>
-                </div>
-            `;
-            
-            activityList.insertBefore(newActivity, activityList.firstChild);
-            
-            // Remove old activities if too many
-            const allActivities = activityList.querySelectorAll('.activity-item');
-            if (allActivities.length > 5) {
-                allActivities[allActivities.length - 1].remove();
-            }
-        }, 10000); // Add new activity every 10 seconds
-    }
+    // Làm mới hoạt động gần đây từ API (không tạo dữ liệu giả)
+    setInterval(() => { try { if (typeof loadRecentActivities === 'function') loadRecentActivities(); } catch {} }, 15000);
 
     console.log('Admin dashboard loaded successfully!');
 });
