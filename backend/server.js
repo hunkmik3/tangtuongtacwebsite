@@ -27,6 +27,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Cho phép trả lời preflight cho mọi đường dẫn (fix Failed to fetch do CORS ở PATCH/PUT/POST)
 app.options('*', cors());
 
