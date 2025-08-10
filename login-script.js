@@ -14,15 +14,24 @@ function __initLoginPage() {
 
     function getApiBases() {
         const bases = [];
-        if (typeof window !== 'undefined' && window.API_BASE_URL) bases.push(String(window.API_BASE_URL).replace(/\/$/, ''));
-        if (STORED_API_BASE) bases.push(String(STORED_API_BASE).replace(/\/$/, ''));
-        const isHttp = location.protocol.startsWith('http');
-        if (isHttp) {
-            bases.push(`${location.protocol}//${location.hostname}:4000`);
+        const apiFromWindow = (typeof window !== 'undefined' && window.API_BASE_URL) ? String(window.API_BASE_URL).replace(/\/$/, '') : '';
+        const apiFromStorage = STORED_API_BASE ? String(STORED_API_BASE).replace(/\/$/, '') : '';
+        const isHttpsPage = (typeof location !== 'undefined') && location.protocol === 'https:';
+
+        if (apiFromWindow) bases.push(apiFromWindow);
+        if (apiFromStorage) bases.push(apiFromStorage);
+
+        // Chỉ thêm fallback HTTP cục bộ khi trang đang chạy HTTP (dev). 
+        // Nếu trang là HTTPS (Vercel), không thêm HTTP để tránh Mixed Content → Failed to fetch.
+        if (!isHttpsPage) {
+            const isHttp = location.protocol.startsWith('http');
+            if (isHttp) {
+                bases.push(`${location.protocol}//${location.hostname}:4000`);
+            }
+            bases.push('http://localhost:4000');
+            bases.push('http://127.0.0.1:4000');
         }
-        // Luôn thêm các địa chỉ cục bộ chuẩn HTTP để hỗ trợ mở trang qua file://
-        bases.push('http://localhost:4000');
-        bases.push('http://127.0.0.1:4000');
+
         return [...new Set(bases)];
     }
 
