@@ -15,11 +15,19 @@ function __initLoginPage() {
     function getApiBases() {
         const bases = [];
         const apiFromWindow = (typeof window !== 'undefined' && window.API_BASE_URL) ? String(window.API_BASE_URL).replace(/\/$/, '') : '';
-        const apiFromStorage = STORED_API_BASE ? String(STORED_API_BASE).replace(/\/$/, '') : '';
+        let apiFromStorage = STORED_API_BASE ? String(STORED_API_BASE).replace(/\/$/, '') : '';
         const isHttpsPage = (typeof location !== 'undefined') && location.protocol === 'https:';
 
-        if (apiFromWindow) bases.push(apiFromWindow);
-        if (apiFromStorage) bases.push(apiFromStorage);
+        // Nếu trang là HTTPS, chỉ nhận API qua HTTPS
+        const isHttpsUrl = (u) => /^https:\/\//i.test(u);
+        const isHttpUrl = (u) => /^http:\/\//i.test(u);
+
+        if (apiFromWindow && (!isHttpsPage || isHttpsUrl(apiFromWindow))) bases.push(apiFromWindow);
+        if (apiFromStorage && (!isHttpsPage || isHttpsUrl(apiFromStorage))) {
+            bases.push(apiFromStorage);
+        } else if (apiFromStorage && isHttpsPage && isHttpUrl(apiFromStorage)) {
+            try { localStorage.removeItem('api.base'); } catch {}
+        }
 
         // Chỉ thêm fallback HTTP cục bộ khi trang đang chạy HTTP (dev). 
         // Nếu trang là HTTPS (Vercel), không thêm HTTP để tránh Mixed Content → Failed to fetch.
